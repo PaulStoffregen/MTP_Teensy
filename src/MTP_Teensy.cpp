@@ -50,7 +50,7 @@ Stream *MTP_class::printStream_ = &Serial;
 DMAMEM uint8_t MTP_class::disk_buffer_[DISK_BUFFER_SIZE] __attribute__((aligned(32)));
 #endif
 
-//#define DEBUG 2
+#define DEBUG 1
 #if DEBUG > 0
 #define printf(...) printStream_->printf(__VA_ARGS__)
 #else
@@ -1090,8 +1090,9 @@ uint32_t MTP_class::GetObjectPropValue(struct MTPContainer &cmd) {
     write16(0);
     break;
   case MTP_PROPERTY_OBJECT_SIZE: // 0xDC04:
-    write32(file_size);
-    write32(0);
+    write64(file_size);
+    //write32(file_size & 0xfffffffful);
+    //write32(file_size >> 32);
     break;
   case MTP_PROPERTY_OBJECT_FILE_NAME: // 0xDC07:
   case MTP_PROPERTY_NAME: // 0xDC44:
