@@ -70,9 +70,10 @@ public:
 	struct __attribute__((__packed__)) Record  {
 	  uint32_t dtModify;
 	  uint32_t dtCreate;
+	  // increase size to 64 bits for large files plus moved up to better bit align
+	  uint64_t child; // size stored here for files - increased to 64 bits
 	  uint16_t parent;
 	  uint16_t sibling;
-	  uint32_t child; // size stored here for files
 	  uint8_t store; // index int physical storage (0 ... num_storages-1)
 	  uint8_t isdir:1;
 	  uint8_t scanned:1;
@@ -82,9 +83,9 @@ public:
 	struct __attribute__((__packed__)) RecordFixed  {
 	  uint32_t dtModify;
 	  uint32_t dtCreate;
+	  uint64_t child; // size stored here for files
 	  uint16_t parent;
 	  uint16_t sibling;
-	  uint32_t child; // size stored here for files
 	  uint8_t store; // index int physical storage (0 ... num_storages-1)
 	  uint8_t isdir:1;
 	  uint8_t scanned:1;
@@ -221,9 +222,9 @@ public:
 	}
 	void StartGetObjectHandles(uint32_t storage, uint32_t parent);
 	uint32_t GetNextObjectHandle(uint32_t storage);
-	void GetObjectInfo(uint32_t handle, char *name, uint32_t *size,
+	void GetObjectInfo(uint32_t handle, char *name, uint64_t *size,
 		uint32_t *parent, uint16_t *store);
-	uint32_t GetSize(uint32_t handle);
+	uint64_t GetSize(uint32_t handle);
 	bool getModifyTime(uint32_t handle, uint32_t &dt);
 	bool getCreateTime(uint32_t handle, uint32_t &dt);
 	bool updateDateTimeStamps(uint32_t handle, uint32_t dtCreated, uint32_t dtModified);

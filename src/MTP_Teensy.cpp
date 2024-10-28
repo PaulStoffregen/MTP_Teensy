@@ -513,7 +513,8 @@ uint32_t MTP_class::SendObject(struct MTPContainer &cmd) {
 //   Response: no parameters
 uint32_t MTP_class::GetObjectInfo(struct MTPContainer &cmd) {
   uint32_t handle = cmd.params[0];
-  uint32_t size, parent, dt;
+  uint32_t parent, dt;
+  uint64_t size;
   char filename[MTP_MAX_FILENAME_LEN], ctimebuf[16], mtimebuf[16];
   DateTimeFields dtf;
   uint16_t store;
@@ -1003,7 +1004,7 @@ uint32_t MTP_class::GetObjectPropValue(struct MTPContainer &cmd) {
   const uint32_t property = cmd.params[1];
   uint32_t data_size = 0;
   char name[MTP_MAX_FILENAME_LEN];
-  uint32_t file_size;
+  uint64_t file_size;
   uint32_t parent;
   uint16_t store;
   uint32_t dt;

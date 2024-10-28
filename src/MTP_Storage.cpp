@@ -904,7 +904,7 @@ void MTPStorage::ScanDir(uint32_t store, uint32_t i)
 			r.parent = i;
 			r.sibling = sibling;
 			r.isdir = child_.isDirectory();
-			r.child = r.isdir ? 0 : (uint32_t)child_.size();
+			r.child = r.isdir ? 0 : (uint64_t)child_.size();
 			r.scanned = false;
 			strlcpy(r.name, child_.name(), MTP_MAX_FILENAME_LEN);
 			DateTimeFields dtf;
@@ -977,7 +977,7 @@ uint32_t MTPStorage::GetNextObjectHandle(uint32_t store)
 }
 
 
-void MTPStorage::GetObjectInfo(uint32_t handle, char *name, uint32_t *size,
+void MTPStorage::GetObjectInfo(uint32_t handle, char *name, uint64_t *size,
                                uint32_t *parent, uint16_t *store)
 {
 	Record r = ReadIndexRecord(handle);
@@ -988,7 +988,7 @@ void MTPStorage::GetObjectInfo(uint32_t handle, char *name, uint32_t *size,
 }
 
 
-uint32_t MTPStorage::GetSize(uint32_t handle) {
+uint64_t MTPStorage::GetSize(uint32_t handle) {
 	return ReadIndexRecord(handle).child;
 }
 
@@ -1143,6 +1143,7 @@ uint32_t MTPStorage::Create(uint32_t store, uint32_t parent, bool folder, const 
 	Record r;
 
 	// See if the name already exists in the parent
+	// 32 bits is probably sufficient for index child is now 64 bits 
 	uint32_t index = p.child;
 	while (index) {
 		r = ReadIndexRecord(index);
@@ -1304,7 +1305,7 @@ void MTPStorage::dumpIndexList(void)
 					MTP_class::PrintStream()->printf("< Skipped %u - %u >\n", skip_start_index, ii-1);
 					skip_start_index = 0;
 				}
-				MTP_class::PrintStream()->printf("%d: %d %d %u %d %d %d %u %u %s\n",
+				MTP_class::PrintStream()->printf("%d: %d %d %u %d %d %ld %u %u %s\n",
 			                                 ii, p.store, p.isdir, p.scanned, p.parent, p.sibling, p.child,
 			                                 p.dtCreate, p.dtModify, p.name);
 			}
@@ -1318,13 +1319,13 @@ void MTPStorage::dumpIndexList(void)
 
 void MTPStorage::printRecord(int h, Record *p)
 {
-	MTP_class::PrintStream()->printf("%d: %d %d %d %d %d\n", h, p->store, p->isdir,
+	MTP_class::PrintStream()->printf("%d: %d %d %d %d %ld\n", h, p->store, p->isdir,
 	                                 p->parent, p->sibling, p->child);
 }
 
 void MTPStorage::printRecordIncludeName(int h, Record *p)
 {
-	MTP_class::PrintStream()->printf("%d: %u %u %u %u %u %u %u %u %s\n", h, p->store,
+	MTP_class::PrintStream()->printf("%d: %u %u %u %u %u %lu %u %u %s\n", h, p->store,
 	                                 p->isdir, p->scanned, p->parent, p->sibling,
 	                                 p->child, p->dtModify, p->dtCreate, p->name);
 }
@@ -1828,7 +1829,7 @@ uint32_t MTPStorage::MapFileNameToIndex(uint32_t storage, const char *pathname,
 			if (file_) {
 				r.isdir = file_.isDirectory();
 				if (!r.isdir) {
-					r.child = (uint32_t)file_.size();
+					r.child = (uint64_t)file_.size();
 				}
 				mtp_lock_storage(true);
 				file_.close();
