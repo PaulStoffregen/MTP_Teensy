@@ -983,7 +983,7 @@ void MTPStorage::GetObjectInfo(uint32_t handle, char *name, uint64_t *size,
 	Record r = ReadIndexRecord(handle);
 	strcpy(name, r.name);
 	*parent = r.parent;
-	*size = r.isdir ? 0xFFFFFFFFUL : r.child;
+	*size = r.isdir ? (uint64_t)-1 : r.child;
 	*store = r.store;
 }
 

@@ -2,7 +2,7 @@
 #include <MTP_Teensy.h>
 
 #define CS_SD BUILTIN_SDCARD  // Works on T_3.6 and T_4.1
-#define CS_SD2 10
+//#define CS_SD2 10
 
 #ifdef CS_SD2
 SDClass sdSPI;

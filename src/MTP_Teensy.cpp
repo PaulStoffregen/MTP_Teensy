@@ -545,9 +545,13 @@ uint32_t MTP_class::GetObjectInfo(struct MTPContainer &cmd) {
     + writestringlen(filename) + writestringlen(ctimebuf)
     + writestringlen(mtimebuf) + writestringlen(""));
 
+  // if size is > 4gb we need to send the size 0xfffffffful and it may then ask us for real size.
+  bool is_directory = (size == (uint64_t)-1);
+  if (size > 0xfffffffful) size = 0xfffffffful;
+
   uint32_t storage = Store2Storage(store);
   write32(storage);                                // storage
-  write16(size == 0xFFFFFFFFUL ? 0x3001 : 0x0000); // format
+  write16(is_directory ? 0x3001 : 0x0000);         // format
   write16(0);                                      // protection
   write32(size);                                   // size
   write16(0);                                      // thumb format
@@ -558,7 +562,7 @@ uint32_t MTP_class::GetObjectInfo(struct MTPContainer &cmd) {
   write32(0);                                      // pix height
   write32(0);                                      // bit depth
   write32(parent);                                 // parent
-  write16(size == 0xFFFFFFFFUL ? 1 : 0);           // association type
+  write16(is_directory ? 1 : 0);                   // association type
   write32(0);                                      // association description
   write32(0);                                      // sequence number
   writestring(filename);                           // filename
@@ -576,10 +580,10 @@ uint32_t MTP_class::GetObjectInfo(struct MTPContainer &cmd) {
 //   Response: no parameters
 uint32_t MTP_class::GetObject(struct MTPContainer &cmd) {
   const int object_id = cmd.params[0];
-  uint32_t size = storage_.GetSize(object_id);
+  uint64_t size = storage_.GetSize(object_id);
   //printf("GetObject, size=%u\n", size);
   writeDataPhaseHeader(cmd, size);
-  uint32_t pos = 0;
+  uint64_t pos = 0;
   while (pos < size) {
     if (usb_mtp_status != 0x01) {
       //printf("GetObject, abort\n");
