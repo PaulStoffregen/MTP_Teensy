@@ -581,22 +581,25 @@ uint32_t MTP_class::GetObjectInfo(struct MTPContainer &cmd) {
 uint32_t MTP_class::GetObject(struct MTPContainer &cmd) {
   const int object_id = cmd.params[0];
   uint64_t size = storage_.GetSize(object_id);
-  //printf("GetObject, size=%u\n", size);
-  writeDataPhaseHeader(cmd, size);
+  printf("GetObject, size=%llu\n", size);
+  writeDataPhaseHeader(cmd, (size > 0xfffffffful)?  0xfffffffful : size);
   uint64_t pos = 0;
   while (pos < size) {
     if (usb_mtp_status != 0x01) {
-      //printf("GetObject, abort\n");
+      printf("GetObject, abort status:%x\n", usb_mtp_status);
       return 0;
     }
     if (transmit_buffer.data == NULL) allocate_transmit_bulk();
     uint32_t avail = transmit_buffer.size - transmit_buffer.len;
     uint32_t to_copy = size - pos;
     if (to_copy > avail) to_copy = avail;
-    //printf("GetObject, read=%u, pos=%u\n", to_copy, pos);
     // Read directly from storage into usb buffer.
-    storage_.read(object_id, pos,
+    uint32_t cb_read = storage_.read(object_id, pos,
                    (char *)(transmit_buffer.data + transmit_buffer.len), to_copy);
+    static uint16_t print_counter = 0;
+    if (((print_counter++ & 0x7f) == 0) || (cb_read == 0))
+      printf("GetObject, read=%u, pos=%llu, Read:%u\n", to_copy, pos, cb_read);
+    if (cb_read == 0) break;
     pos += to_copy;
     transmit_buffer.len += to_copy;
     if (transmit_buffer.len >= transmit_buffer.size) {
@@ -604,7 +607,7 @@ uint32_t MTP_class::GetObject(struct MTPContainer &cmd) {
     }
   }
   write_finish();
-  //printf("GetObject, done\n");
+  printf("GetObject, done\n");
   return MTP_RESPONSE_OK;
 }
 

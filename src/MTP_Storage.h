@@ -229,7 +229,7 @@ public:
 	bool getCreateTime(uint32_t handle, uint32_t &dt);
 	bool updateDateTimeStamps(uint32_t handle, uint32_t dtCreated, uint32_t dtModified);
 	uint32_t Create(uint32_t storage, uint32_t parent, bool folder, const char *filename);
-	void read(uint32_t handle, uint32_t pos, char *buffer, uint32_t bytes);
+	uint32_t read(uint32_t handle, uint64_t pos, char *buffer, uint32_t bytes);
 	size_t write(const char *data, uint32_t size);
 	void close();
 	bool DeleteObject(uint32_t object);
@@ -250,7 +250,7 @@ public:
 	uint32_t AppendIndexRecord(const Record &r);
 	Record ReadIndexRecord(uint32_t i);
 	uint16_t ConstructFilename(int i, char *out, int len);
-	void OpenFileByIndex(uint32_t i, uint32_t mode = FILE_READ);
+	bool OpenFileByIndex(uint32_t i, uint32_t mode = FILE_READ);
 	void printRecord(int h, Record *p);
 	void printRecordIncludeName(int h, Record *p);
 	void dumpIndexList(void);

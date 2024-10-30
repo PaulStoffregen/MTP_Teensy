@@ -809,12 +809,13 @@ uint16_t MTPStorage::ConstructFilename(int i, char *out, int len)
 	}
 }
 
-void MTPStorage::OpenFileByIndex(uint32_t i, uint32_t mode)
+// returns true if same file same mode...
+bool MTPStorage::OpenFileByIndex(uint32_t i, uint32_t mode)
 {
 	//DBGPrintf("*** OpenFileIndex(%u, %x)\n", i, mode); DBGFlush();
 	bool file_is_open = file_;  // check to see if file is open
 	if (file_is_open && (open_file_ == i) && (mode_ == mode)) {
-		return;
+		return true;
 	}
 	char filename[MTP_MAX_PATH_LEN];
 	uint16_t store = ConstructFilename(i, filename, MTP_MAX_PATH_LEN);
@@ -835,6 +836,7 @@ void MTPStorage::OpenFileByIndex(uint32_t i, uint32_t mode)
 		mode_ = mode;
 	}
 	mtp_lock_storage(false);
+	return false;
 }
 
 
@@ -904,7 +906,7 @@ void MTPStorage::ScanDir(uint32_t store, uint32_t i)
 			r.parent = i;
 			r.sibling = sibling;
 			r.isdir = child_.isDirectory();
-			r.child = r.isdir ? 0 : (uint64_t)child_.size();
+			r.child = r.isdir ? 0 : child_.size();
 			r.scanned = false;
 			strlcpy(r.name, child_.name(), MTP_MAX_FILENAME_LEN);
 			DateTimeFields dtf;
@@ -1060,13 +1062,24 @@ bool MTPStorage::updateDateTimeStamps(uint32_t handle, uint32_t dtCreated, uint3
 	return true;
 }
 
-void MTPStorage::read(uint32_t handle, uint32_t pos, char *out, uint32_t bytes)
+uint32_t MTPStorage::read(uint32_t handle, uint64_t pos, char *out, uint32_t bytes)
 {
-	OpenFileByIndex(handle);
+	// some real hack, to bypass doing seek unless we have to.
+	static uint64_t last_pos = (uint64_t)-1;
+	// if the file was not te same or the like clear last position.
+	if (!OpenFileByIndex(handle)) {
+		Serial.write('@');
+		last_pos = (uint64_t)-1; 
+	}
 	mtp_lock_storage(true);
-	file_.seek(pos, SeekSet);
-	file_.read(out, bytes);
+	if (pos != last_pos) {
+		file_.seek(pos, SeekSet);
+		Serial.write("$");
+	}
+	uint32_t cb_read = file_.read(out, bytes);
+	last_pos = pos + cb_read;
 	mtp_lock_storage(false);
+	return cb_read;
 }
 
 
@@ -1251,7 +1264,7 @@ size_t MTPStorage::write(const char *data, uint32_t bytes)
 void MTPStorage::close()
 {
 	mtp_lock_storage(true);
-	uint32_t size = (uint32_t)file_.size();
+	uint64_t size = file_.size();
 	file_.close();
 	mtp_lock_storage(false);
 	// update record with file size
