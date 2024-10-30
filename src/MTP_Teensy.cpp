@@ -50,7 +50,7 @@ Stream *MTP_class::printStream_ = &Serial;
 DMAMEM uint8_t MTP_class::disk_buffer_[DISK_BUFFER_SIZE] __attribute__((aligned(32)));
 #endif
 
-#define DEBUG 1
+#define DEBUG 0
 #if DEBUG > 0
 #define printf(...) printStream_->printf(__VA_ARGS__)
 #else
