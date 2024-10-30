@@ -584,6 +584,7 @@ uint32_t MTP_class::GetObject(struct MTPContainer &cmd) {
   printf("GetObject, size=%llu\n", size);
   writeDataPhaseHeader(cmd, (size > 0xfffffffful)?  0xfffffffful : size);
   uint64_t pos = 0;
+  uint16_t print_counter = 0;
   while (pos < size) {
     if (usb_mtp_status != 0x01) {
       printf("GetObject, abort status:%x\n", usb_mtp_status);
@@ -591,14 +592,14 @@ uint32_t MTP_class::GetObject(struct MTPContainer &cmd) {
     }
     if (transmit_buffer.data == NULL) allocate_transmit_bulk();
     uint32_t avail = transmit_buffer.size - transmit_buffer.len;
-    uint32_t to_copy = size - pos;
+    uint64_t to_copy = size - pos;
     if (to_copy > avail) to_copy = avail;
     // Read directly from storage into usb buffer.
     uint32_t cb_read = storage_.read(object_id, pos,
                    (char *)(transmit_buffer.data + transmit_buffer.len), to_copy);
-    static uint16_t print_counter = 0;
-    if (((print_counter++ & 0x7f) == 0) || (cb_read == 0))
+    if (((print_counter++ & 0x7f) == 0) || (cb_read == 0)) {
       printf("GetObject, read=%u, pos=%llu, Read:%u\n", to_copy, pos, cb_read);
+    }
     if (cb_read == 0) break;
     pos += to_copy;
     transmit_buffer.len += to_copy;
@@ -607,7 +608,7 @@ uint32_t MTP_class::GetObject(struct MTPContainer &cmd) {
     }
   }
   write_finish();
-  printf("GetObject, done\n");
+  printf("GetObject, done pos:%llu size:%llu\n", pos, size);
   return MTP_RESPONSE_OK;
 }
 
@@ -1091,13 +1092,14 @@ uint32_t MTP_class::GetObjectPropValue(struct MTPContainer &cmd) {
     write32(storage);
     break;
   case MTP_PROPERTY_OBJECT_FORMAT: // 0xDC02:
-    write16((file_size == 0xFFFFFFFF) ? 0x3001 /*directory*/ : 0x3000 /*file*/);
+    write16((file_size == (uint64_t)-1) ? 0x3001 /*directory*/ : 0x3000 /*file*/);
     break;
   case MTP_PROPERTY_PROTECTION_STATUS: // 0xDC03:
     write16(0);
     break;
   case MTP_PROPERTY_OBJECT_SIZE: // 0xDC04:
     write64(file_size);
+    printf("\tMTP_PROPERTY_OBJECT_SIZE: %s %llx\n", name, file_size);
     //write32(file_size & 0xfffffffful);
     //write32(file_size >> 32);
     break;
