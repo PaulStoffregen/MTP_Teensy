@@ -50,7 +50,7 @@ Stream *MTP_class::printStream_ = &Serial;
 DMAMEM uint8_t MTP_class::disk_buffer_[DISK_BUFFER_SIZE] __attribute__((aligned(32)));
 #endif
 
-#define DEBUG 0
+#define DEBUG 1
 #if DEBUG > 0
 #define printf(...) printStream_->printf(__VA_ARGS__)
 #else
@@ -421,9 +421,12 @@ uint32_t MTP_class::SendObjectInfo(struct MTPContainer &cmd) { // MTP 1.1 spec, 
     return MTP_RESPONSE_INVALID_DATASET;
   }
   // Lets see if we have enough room to store this file:
-  uint32_t free_space = storage_.totalSize(store) - storage_.usedSize(store);
+  uint64_t free_space = storage_.totalSize(store) - storage_.usedSize(store);
+  if (file_size == 0xFFFFFFFFUL) {
+    printf("Size of object == 0xffffffff - Indicates >= 4GB file!\n \t?TODO: query real size? FS supports this - FAT32 no?\n");
+  }
   if (file_size > free_space) {
-    printf("Size of object:%u is > free space: %u\n", file_size, free_space);
+    printf("Size of object:%u is > free space: %llu\n", file_size, free_space);
     return MTP_RESPONSE_STORAGE_FULL;
   }
   const bool dir = (oformat == 0x3001);
