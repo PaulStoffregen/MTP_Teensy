@@ -460,22 +460,37 @@ uint32_t MTP_class::SendObjectInfo(struct MTPContainer &cmd) { // MTP 1.1 spec, 
 uint32_t MTP_class::SendObject(struct MTPContainer &cmd) {
   MTPHeader header;
   if (!readDataPhaseHeader(&header)) return MTP_RESPONSE_PARAMETER_NOT_SUPPORTED;
-  uint32_t size = header.len - sizeof(header);
-  printf("SendObject: %u bytes, id=%x\n", size, object_id_);
+  uint64_t size = header.len - sizeof(header);
+  printf("SendObject: %llu(0x%llx) bytes, id=%x\n", size, size, object_id_);
   // TODO: check size matches file_size from SendObjectInfo
   // TODO: check if object_id_
   // TODO: should we do storage_.Create() here?  Can we preallocate file size?
   uint32_t ret = MTP_RESPONSE_OK;
-  uint32_t pos = 0;
-  while (pos < size) {
+  uint64_t pos = 0;
+  uint32_t count_reads = 0;
+  uint32_t to_copy_prev = 0;
+  bool huge_file = (size == 0xfffffffful);
+  if (huge_file) size = (uint64_t)-1;
+  uint64_t cb_left = size;
+  while (huge_file || (pos < size)) {
     if (receive_buffer.data == NULL) {
       if (!receive_bulk(100)) {
+        printf("SO: receive failed pos:%llu size:%llu\n", pos, size);
         ret = MTP_RESPONSE_OPERATION_NOT_SUPPORTED;
         break;
       }
     }
     uint32_t to_copy = receive_buffer.len - receive_buffer.index;
-    if (to_copy > size) to_copy = size;
+    count_reads++;
+    if (to_copy != to_copy_prev) {
+      printf("SO RC:%u CB:%u pos:%llu\n", count_reads, to_copy, pos);
+      to_copy_prev = to_copy;;
+    }
+
+
+    //if (to_copy > size) to_copy = size;  // did not make sense to me
+    if (to_copy > cb_left) to_copy = cb_left;
+
     //printf("SendObject, pos=%u, write=%u, size=%u\n", pos, to_copy, size);
     bool ok = storage_.write((char *)(receive_buffer.data + receive_buffer.index), to_copy);
     if (!ok) {
@@ -484,12 +499,19 @@ uint32_t MTP_class::SendObject(struct MTPContainer &cmd) {
       break;
     }
     pos += to_copy;
+    cb_left -= to_copy; // 
     receive_buffer.index += to_copy;
     if (receive_buffer.index >= receive_buffer.len) {
       free_received_bulk();
+    #if 1
+      if ((to_copy < 512) && (pos > 0xfffffffful)) {
+        printf(">4gb file EOF detected pos:%llu\n", pos);
+        break;
+      }
+    #endif    
     }
   }
-  while (pos < size) {
+  while ((pos < size) && (pos <  0xfffffffful)) {
     // consume remaining incoming data, if we aborted for any reason
     if (receive_buffer.data == NULL && !receive_bulk(250)) break;
     pos += receive_buffer.len - receive_buffer.index;

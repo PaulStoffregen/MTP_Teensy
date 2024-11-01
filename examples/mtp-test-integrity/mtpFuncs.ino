@@ -608,7 +608,7 @@ void bigFile2MB( int doThis ) {
     uint32_t resW = 1;
     
     char someData[2048];
-    uint32_t xx, toWrite;
+    uint64_t xx, toWrite;
     toWrite = 2048 * 1000;
     if ( toWrite > (65535 + (myfs->totalSize() - myfs->usedSize()) ) ) {
       Serial.print( "Disk too full! DO :: q or F");
