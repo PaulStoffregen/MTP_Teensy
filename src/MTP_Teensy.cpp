@@ -647,20 +647,24 @@ uint32_t MTP_class::GetPartialObject(struct MTPContainer &cmd) {
   uint32_t offset = cmd.params[1];
   uint32_t NumBytes = cmd.params[2];
   uint32_t size = storage_.GetSize(object_id);
-  size -= offset;
-  if (NumBytes < size) {
-    size = NumBytes;
+  if (offset >= size) {
+    // writeDataPhaseHeader(cmd, 0); ???
+    return MTP_RESPONSE_INVALID_PARAMETER;
   }
-  writeDataPhaseHeader(cmd, size);
+  if (NumBytes > size - offset) {
+    NumBytes = size - offset;
+  }
+  writeDataPhaseHeader(cmd, NumBytes);
   uint32_t pos = offset; // into data
-  while (pos < size) {
+  uint32_t end = offset + NumBytes;
+  while (pos < end) {
     if (usb_mtp_status != 0x01) {
-      //printf("GetPartialObject, abort\n");
+      printf("GetPartialObject, abort\n");
       return 0;
     }
     if (transmit_buffer.data == NULL) allocate_transmit_bulk();
     uint32_t avail = transmit_buffer.size - transmit_buffer.len;
-    uint32_t to_copy = size - pos;
+    uint32_t to_copy = end - pos;
     if (to_copy > avail) to_copy = avail;
     storage_.read(object_id, pos,
                    (char *)(transmit_buffer.data + transmit_buffer.len), to_copy);
@@ -671,7 +675,7 @@ uint32_t MTP_class::GetPartialObject(struct MTPContainer &cmd) {
     }
   }
   write_finish();
-  cmd.params[0] = size;
+  cmd.params[0] = NumBytes;
   return MTP_RESPONSE_OK + (1<<28);
 }
 
