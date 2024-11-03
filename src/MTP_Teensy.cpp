@@ -609,7 +609,9 @@ uint32_t MTP_class::GetObject(struct MTPContainer &cmd) {
   printf("GetObject, size=%llu\n", size);
   writeDataPhaseHeader(cmd, (size > 0xfffffffful)?  0xfffffffful : size);
   uint64_t pos = 0;
-  uint16_t print_counter = 0;
+  #if DEBUG
+  elapsedMillis emPrint;
+  #endif
   while (pos < size) {
     if (usb_mtp_status != 0x01) {
       printf("GetObject, abort status:%x\n", usb_mtp_status);
@@ -622,9 +624,12 @@ uint32_t MTP_class::GetObject(struct MTPContainer &cmd) {
     // Read directly from storage into usb buffer.
     uint32_t cb_read = storage_.read(object_id, pos,
                    (char *)(transmit_buffer.data + transmit_buffer.len), to_copy);
-    if (((print_counter++ & 0x7f) == 0) || (cb_read == 0)) {
-      printf("GetObject, read=%u, pos=%llu, Read:%u\n", to_copy, pos, cb_read);
+    #if DEBUG
+    if ((emPrint >= 15000) || (cb_read != 512)) {
+      printf("\tGO: read=%u, pos=%llu, Read:%u\n", to_copy, pos, cb_read);
+      emPrint = 0;
     }
+    #endif
     if (cb_read == 0) break;
     pos += to_copy;
     transmit_buffer.len += to_copy;
@@ -645,8 +650,10 @@ uint32_t MTP_class::GetObject(struct MTPContainer &cmd) {
 uint32_t MTP_class::GetPartialObject(struct MTPContainer &cmd) {
   uint32_t object_id = cmd.params[0];
   uint32_t offset = cmd.params[1];
-  uint32_t NumBytes = cmd.params[2];
-  uint32_t size = storage_.GetSize(object_id);
+  uint64_t NumBytes = cmd.params[2];
+  if (NumBytes == 0xfffffffful) NumBytes = (uint64_t)-1;
+  uint64_t size = storage_.GetSize(object_id);
+  printf("GetPartialObject: %x Of:%u NB:%u CB:%llu, FS:%llu\n", object_id, offset, cmd.params[2], NumBytes, size);
   if (offset >= size) {
     // writeDataPhaseHeader(cmd, 0); ???
     return MTP_RESPONSE_INVALID_PARAMETER;
@@ -675,7 +682,7 @@ uint32_t MTP_class::GetPartialObject(struct MTPContainer &cmd) {
     }
   }
   write_finish();
-  cmd.params[0] = NumBytes;
+  cmd.params[0] = (NumBytes < 0xfffffffful)? NumBytes : 0xfffffffful;
   return MTP_RESPONSE_OK + (1<<28);
 }
 
