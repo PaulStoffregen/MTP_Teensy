@@ -26,6 +26,8 @@
 
 #if defined(USB_MTPDISK) || defined(USB_MTPDISK_SERIAL)
 
+#define USE_DISK_BUFFER // only currently on T4.x
+
 #include "MTP_Teensy.h"
 #include "MTP_Const.h"
 #undef USB_DESC_LIST_DEFINE
@@ -50,7 +52,7 @@ Stream *MTP_class::printStream_ = &Serial;
 DMAMEM uint8_t MTP_class::disk_buffer_[DISK_BUFFER_SIZE] __attribute__((aligned(32)));
 #endif
 
-#define DEBUG 1
+#define DEBUG 0
 #if DEBUG > 0
 #define printf(...) printStream_->printf(__VA_ARGS__)
 #else
@@ -457,6 +459,126 @@ uint32_t MTP_class::SendObjectInfo(struct MTPContainer &cmd) { // MTP 1.1 spec, 
 //   Command: no parameters
 //   Data: PC->Teensy: Binary Data
 //   Response: no parameters
+#if defined(__IMXRT1062__) && defined(USE_DISK_BUFFER)
+uint32_t MTP_class::SendObject(struct MTPContainer &cmd) {
+  MTPHeader header;
+  if (!readDataPhaseHeader(&header)) return MTP_RESPONSE_PARAMETER_NOT_SUPPORTED;
+  uint64_t size = header.len - sizeof(header);
+  printf("SendObject: %llu(0x%llx) bytes, id=%x\n", size, size, object_id_);
+  // TODO: check size matches file_size from SendObjectInfo
+  // TODO: check if object_id_
+  // TODO: should we do storage_.Create() here?  Can we preallocate file size?
+  uint32_t ret = MTP_RESPONSE_OK;
+  uint64_t pos = 0;
+  uint32_t count_reads = 0;
+  uint32_t to_copy_prev = 0;
+
+  // index into our disk buffer.
+
+  bool huge_file = (size == 0xfffffffful);
+  if (huge_file) size = (uint64_t)-1;
+  uint64_t cb_left = size;
+
+  #if DEBUG
+  elapsedMillis em_send;
+  elapsedMillis emPrint;
+  #endif
+
+  // lets go ahead and copy the rest of the first receive buffer into
+  // our disk buffer, so we don't have to play with starting index and the like...
+  uint16_t disk_buffer_index = receive_buffer.len - receive_buffer.index;
+  memcpy((char*)disk_buffer_, (char *)&receive_buffer.data[receive_buffer.index], disk_buffer_index);
+  pos = disk_buffer_index;
+  free_received_bulk();
+
+
+  while (huge_file || (pos < size)) {
+    if (!receive_bulk(100)) {
+      if (pos <= 0xfffffffful) {
+        printf("SO: receive failed pos:%llu size:%llu\n", pos, size);
+        ret = MTP_RESPONSE_OPERATION_NOT_SUPPORTED;
+      } else {
+        printf("SO: receive failed pos:%llu large file EOF\n", pos);
+      }
+      break;
+    }
+
+
+    uint32_t to_copy = receive_buffer.len;
+
+    #if DEBUG
+    count_reads++;
+    if ((to_copy != to_copy_prev) || (emPrint > 15000)) {
+      printf("SO RC:%u CB:%u pos:%llu\n", count_reads, to_copy, pos);
+      to_copy_prev = to_copy;
+      emPrint = 0;
+    }
+    #endif
+
+    uint16_t cb_buffer_avail = sizeof(disk_buffer_) - disk_buffer_index;
+    // See if this will fill the buffer;
+    if (cb_buffer_avail <= to_copy) {
+      memcpy(&disk_buffer_[disk_buffer_index], (char*)&receive_buffer.data[receive_buffer.index], cb_buffer_avail);
+      disk_buffer_index = 0;
+      if (storage_.write((char*)disk_buffer_, sizeof(disk_buffer_)) != sizeof(disk_buffer_)) {
+        ret = MTP_RESPONSE_OPERATION_NOT_SUPPORTED; // TODO: best response for write error??
+        // maybe send MTP_EVENT_CANCEL_TRANSACTION event??
+        break;
+      }
+      if (cb_buffer_avail != to_copy) {
+        // copy in the remaining.
+        disk_buffer_index = to_copy - cb_buffer_avail;
+        memcpy(disk_buffer_, (char*)&receive_buffer.data[cb_buffer_avail], disk_buffer_index);
+      }
+    } else {
+      memcpy(&disk_buffer_[disk_buffer_index], (char*)receive_buffer.data, to_copy);
+      disk_buffer_index += to_copy;  
+    }
+
+    pos += to_copy;
+    cb_left -= to_copy; // 
+
+    free_received_bulk();
+    if ((to_copy < 512) && (size == (uint64_t)-1) && (pos > 0xfffffffful)){
+      printf("SendObject large EOF Detected: %lluu\n", pos);
+      break;
+    }
+  }
+
+
+  // clear out any trailing. 
+
+
+  while (pos < size) {
+    // consume remaining incoming data, if we aborted for any reason
+    if (receive_buffer.data == NULL && !receive_bulk(250)) break; 
+    uint16_t cb_packet = receive_buffer.len - receive_buffer.index;   
+    pos += cb_packet;
+    free_received_bulk();
+    if (cb_packet < 512) break;
+  }
+  // write out anything left in our disk buffer... 
+  if (disk_buffer_index) {
+    if (storage_.write((char*)disk_buffer_, disk_buffer_index) != disk_buffer_index) {
+      ret = MTP_RESPONSE_OPERATION_NOT_SUPPORTED; // TODO: best response for write error??
+      // maybe send MTP_EVENT_CANCEL_TRANSACTION event??
+    }
+
+  }
+
+  // TODO: check no lingering buffered data, and ZLP is present if expected
+  #if DEBUG
+  printf("SendObject complete pos:%u dt:%u\n", pos, (uint32_t)em_send / 1000);
+  #endif
+
+  storage_.updateDateTimeStamps(object_id_, dtCreated_, dtModified_);
+  storage_.close();
+
+  if (ret == MTP_RESPONSE_OK) object_id_ = 0; // SendObjectInfo can not be reused after success
+  return ret;
+}
+
+#else
 uint32_t MTP_class::SendObject(struct MTPContainer &cmd) {
   MTPHeader header;
   if (!readDataPhaseHeader(&header)) return MTP_RESPONSE_PARAMETER_NOT_SUPPORTED;
@@ -525,7 +647,7 @@ uint32_t MTP_class::SendObject(struct MTPContainer &cmd) {
   if (ret == MTP_RESPONSE_OK) object_id_ = 0; // SendObjectInfo can not be reused after success
   return ret;
 }
-
+#endif
 
 
 // When the host (your PC) wants to put a read a file from any of Teensy's drives
@@ -603,6 +725,58 @@ uint32_t MTP_class::GetObjectInfo(struct MTPContainer &cmd) {
 //   Command: 1 parameter: ObjectHandle
 //   Data: Teensy->PC: Binary Data
 //   Response: no parameters
+#if defined(__IMXRT1062__) && defined(USE_DISK_BUFFER)
+// experiment again on T4.x use 4k buffer disk_buffer_
+uint32_t MTP_class::GetObject(struct MTPContainer &cmd) {
+  uint16_t cb_read = 0;
+  uint64_t disk_pos = 0;
+  uint64_t pos = 0;
+
+  const int object_id = cmd.params[0];
+  uint64_t size = storage_.GetSize(object_id);
+  uint64_t count_remaining = size;
+
+  writeDataPhaseHeader(cmd, (size > 0xfffffffful)?  0xfffffffful : size);
+
+  printf("GetObject, size=%llu\n", size);
+  #if DEBUG
+  elapsedMillis emTotal;
+  elapsedMillis emPrint;
+  #endif
+  while (count_remaining) {
+    if (usb_mtp_status != 0x01) {
+      printf("GetObject, abort status:%x\n", usb_mtp_status);
+      return 0;
+    }
+
+    // Lets make it real simple for now.
+    cb_read = storage_.read(object_id, disk_pos, (char*)disk_buffer_, sizeof(disk_buffer_));
+    if (cb_read == 0) {
+      break;
+    }
+    size_t cb_written = write(disk_buffer_, cb_read);
+    if (cb_written != cb_read) {
+      printf("GetObject, write count error: %u != %u\n", cb_written, cb_read);
+      break;
+    }
+    count_remaining -= cb_read;
+    pos += cb_read;
+    disk_pos += cb_read;
+
+    #if DEBUG
+    if (emPrint >= 15000) {
+      uint32_t percent_done = (pos * 100ull) / size;
+      printf("\tdt:%u, pos:%llu %u%%\n", (uint32_t)emTotal/1000, pos, percent_done);
+      emPrint = 0;
+    }
+    #endif
+  }
+  write_finish();
+  printf("GetObject, done pos:%llu size:%llu dt:%u\n", pos, size, (uint32_t)emTotal/1000);
+  return MTP_RESPONSE_OK;
+}
+
+#else
 uint32_t MTP_class::GetObject(struct MTPContainer &cmd) {
   const int object_id = cmd.params[0];
   uint64_t size = storage_.GetSize(object_id);
@@ -641,7 +815,7 @@ uint32_t MTP_class::GetObject(struct MTPContainer &cmd) {
   printf("GetObject, done pos:%llu size:%llu\n", pos, size);
   return MTP_RESPONSE_OK;
 }
-
+#endif
 
 //  GetPartialObject, MTP 1.1 spec, page 240
 //   Command: 3 parameters: ObjectHandle, Offset in bytes, Maximum number of bytes
@@ -1537,7 +1711,8 @@ uint32_t MTP_class::writestringlen(const char *str) {
   return len*2 + 2 + 1;
 }
 
-void MTP_class::write(const void *ptr, int len) {
+size_t MTP_class::write(const void *ptr, size_t len) {
+  size_t len_in = len;
   const char *data = (const char *)ptr;
   while (len > 0) {
     if (transmit_buffer.data == NULL) allocate_transmit_bulk();
@@ -1552,6 +1727,7 @@ void MTP_class::write(const void *ptr, int len) {
       transmit_bulk();
     }
   }
+  return len_in; // for now we are not detecting errors.
 }
 
 void MTP_class::write_finish() {
@@ -1633,7 +1809,10 @@ uint8_t MTP_class::usb_mtp_status = 0x01;
 #elif defined(__IMXRT1062__)
 
 bool MTP_class::receive_bulk(uint32_t timeout) { // T4
-  if (usb_mtp_status != 0x01) return false;
+  if (usb_mtp_status != 0x01) {
+    receive_buffer.data = NULL;
+    return false;
+  }
   receive_buffer.index = 0;
   receive_buffer.size = MTP_RX_SIZE;
   receive_buffer.usb = NULL;
@@ -1664,8 +1843,7 @@ void MTP_class::allocate_transmit_bulk() { // T4
 int MTP_class::transmit_bulk() { // T4
   int r = 0;
   if (usb_mtp_status == 0x01) {
-    write_transfer_open = (transmit_buffer.len > 0 &&
-      (transmit_buffer.len & transmit_packet_size_mask) == 0);
+    write_transfer_open = (transmit_buffer.len > 0 && (transmit_buffer.len & transmit_packet_size_mask) == 0);
     usb_mtp_send(transmit_buffer.data, transmit_buffer.len, 50);
   }
   transmit_buffer.len = 0;

@@ -175,7 +175,7 @@ private:
   static uint32_t sessionID_;
 
   bool write_transfer_open = false;
-  void write(const void *ptr, int len);
+  size_t write(const void *ptr, size_t len);
   void write_finish();
 
   void write8(uint8_t x)   { write(&x, sizeof(x)); }
