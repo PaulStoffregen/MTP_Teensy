@@ -46,9 +46,6 @@ MTPStorage::RecordBlock MTPStorage::recordBlocks_[MTP_RECORD_BLOCKS] DMAMEM;
 MTPStorage::RecordBlockInfo MTPStorage::recordBlocksInfo_[MTP_RECORD_BLOCKS] = {{0}};
 #endif
 
-STORAGE_LOOP_CB *MTPStorage:: s_loop_fstype_cbs[MTP_FSTYPE_MAX] = {nullptr};
-bool MTPStorage::s_loop_fstypes_per_instance[] = {false};
-
 #define DEBUG 0
 
 #if DEBUG > 0
@@ -1709,32 +1706,36 @@ bool MTPStorage::CopyByPathNames(uint32_t store0, char *oldfilename, uint32_t st
 }
 #endif
 
-uint32_t MTPStorage::addFilesystem(FS &disk, const char *diskname, mtp_fstype_t fstype)
+bool MTPStorage::addFilesystem(FS &disk, const char *diskname)
 {
+	int index;
 	if (fsCount < MTPD_MAX_FILESYSTEMS) {
-		name[fsCount] = diskname;
-		fs[fsCount] = &disk;
-		fstype_[fsCount] = fstype;
-		if (fstype != MTP_FSTYPE_UNKNOWN) loop_check_known_fstypes_changed_ = true;
-		store_storage_minor_index_[fsCount] = 1; // start off with 1
-		DBGPrintf("addFilesystem: %d %s %x\n", fsCount, diskname, (uint32_t)fs[fsCount]);
-		return fsCount++;
+		index = fsCount++;
+		store_storage_minor_index_[index] = 0;
 	} else {
 		// See if we can reuse index
-		for (uint32_t store = 0; store < MTPD_MAX_FILESYSTEMS; store++) {
-			if (fs[store] == nullptr) {
-				// found one to reuse.
-				name[store] = diskname;
-				fs[store] = &disk;
-				store_first_child_[store] = 0;
-				store_scanned_[store] = false;
-				store_storage_minor_index_[store]++;
-				DBGPrintf("addFilesystem(%u): %d %s %x\n", store_storage_minor_index_[store], store, diskname, (uint32_t)fs[store]);
-				return store;
+		bool found = false;
+		for (int i=0; i < MTPD_MAX_FILESYSTEMS; i++) {
+			if (fs[i] == nullptr) {
+				index = i;
+				found = true;
+				break;
 			}
 		}
+		if (!found) return false; // no room left
 	}
-	return 0xFFFFFFFFUL; // no room left
+	if (!diskname) diskname = ""; // TODO: get volume name?
+	name[index] = diskname;
+	fs[index] = &disk;
+	store_first_child_[index] = 0;
+	store_scanned_[index] = false;
+	store_storage_minor_index_[index]++;
+	DBGPrintf("addFilesystem: %d %s %x\n", fsCount, diskname, (uint32_t)fs[index]);
+	media_present[index] = disk.mediaPresent();
+	if (media_present[index]) {
+		MTP.send_StoreAddedEvent(index);
+	}
+	return true;
 }
 
 
@@ -1882,60 +1883,37 @@ bool MTPStorage::setIndexStore(uint32_t storage) {
 
 
 //=============================================================================
-// Quick attempt to check if devices changed state...
-// Experiment - put into here as going to try calling some MTP functions... 
-// Should probably be extracted to own file... 
-// 
+// check for removable drives inserted or removed
 //=============================================================================
 
-bool MTPStorage::registerClassLoopCallback(mtp_fstype_t fstype, 
-			STORAGE_LOOP_CB *loop_cb, bool per_instance)
-{
-	if (fstype < MTP_FSTYPE_MAX) {
-		s_loop_fstype_cbs[fstype] = loop_cb;
-		s_loop_fstypes_per_instance[fstype] = per_instance;
-		if (!per_instance) loop_check_known_fstypes_changed_ = true;
-		return true;
-	}
-	return false;
-}
-
-
-bool MTPStorage::loop() {
-  bool storage_changed = false;
-  if (!loop_check_known_fstypes_changed_) return false;
-  if (time_between_device_checks_ms_ == (uint32_t)-1) return false; 
-  if ((uint32_t)(millis() - millis_atlast_device_check_) < time_between_device_checks_ms_) return false;
-  millis_atlast_device_check_ = millis(); 
-
-  static bool first_time = true;
-  if (first_time && Serial) {
-  	Serial.printf("&&&&& Dump MTPStorage Loop Data &&&&&\n\tCallback Data:");
-	  for (uint8_t i = 0; i < MTP_FSTYPE_MAX; i++)
-	  	Serial.printf("\t\t%u\t%p\t%u\n", i, s_loop_fstype_cbs[i], s_loop_fstypes_per_instance[i]);
-	  Serial.println("\tFile Systems:");	
-	
-	  for (uint8_t i = 0; i < fsCount; i++)
-	  	Serial.printf("\t\t%u\t%p\t%u\n", i,  fs[i], fstype_[i]);
-	  first_time = false;	
-  }
-
-  // Check for any class level callbacks.
+void MTPStorage::loop() {
+  if (time_between_device_checks_ms_ == (uint32_t)-1) return;
+  if ((uint32_t)(millis() - millis_atlast_device_check_) < time_between_device_checks_ms_) return;
+  millis_atlast_device_check_ = millis();
+#if 0
+  static unsigned int count=0;
+  MTP_class::PrintStream()->printf("media change check #%u\n", ++count);
+#endif
   for (uint8_t i = 0; i < MTP_FSTYPE_MAX; i++) {
-  	if (s_loop_fstype_cbs[i] && !s_loop_fstypes_per_instance[i]) {
-  		storage_changed |= (*s_loop_fstype_cbs[i])(0xff, nullptr);
-  	}
-  }
+    if (fs[i] == nullptr) continue;
+    bool media_present_now = fs[i]->mediaPresent();
+    if (media_present_now && !media_present[i]) {
+      MTP_class::PrintStream()->printf("\nMedia inserted \"%s\"(%u)\n", get_FSName(i), i);
+      MTP.send_StoreAddedEvent(i); // page 275
+      //MTP.send_StorageInfoChangedEvent(i); // page 278
+      media_present[i] = true;
+    }
+    if (!media_present_now && media_present[i]) {
+      clearStoreIndexItems(i);
+      MTP_class::PrintStream()->printf("\nMedia removed \"%s\"(%u)\n", get_FSName(i), i);
+      MTP.send_StoreRemovedEvent(i); // page 276
+      //MTP.send_StorageInfoChangedEvent(i); // page 278
+      //MTP.send_DeviceResetEvent(); // page 277
 
-  for (uint8_t i = 0; i < fsCount; i++) {
-  	uint8_t fstype = fstype_[i];
-
-  	// See if there is a callback and it is a perinstance and call it
-  	if (fstype && (fstype < MTP_FSTYPE_MAX) && s_loop_fstype_cbs[fstype] 
-  				&& s_loop_fstypes_per_instance[fstype]) {
-  		storage_changed |= (*s_loop_fstype_cbs[(uint8_t)fstype])(i, fs[i]);
+      // TODO: how to forget info about files in mtpindex.dat?
+      // TODO: how to forget info about files memory index?
+      // TODO: what if the removed media had the mtpindex.dat file for other drives?
+      media_present[i] = false;
     }
   }
-  
-  return storage_changed;
 }

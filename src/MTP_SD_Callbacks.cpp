@@ -24,6 +24,7 @@
 
 // modified for SDFS by WMXZ
 // Nov 2020 adapted to SdFat-beta / SD combo
+#if 0
 #include "MTP_Teensy.h"
 #include "MTP_Storage.h"
 
@@ -96,4 +97,5 @@ bool MTP_SD_Callback::checkMediaPresent(uint8_t storage_index, FS *pfs) {
 	}
   return storage_changed;
 }
+#endif
 #endif

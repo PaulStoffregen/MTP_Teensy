@@ -98,15 +98,6 @@ int MTP_class::begin() {
   return usb_init_events();
 }
 
-uint32_t MTP_class::addFilesystem(FS &disk, const char *diskname, mtp_fstype_t fstype) {
-  //printStream_->println("Add **FS** file system");
-  uint32_t store = storage_.addFilesystem(disk, diskname, fstype);
-  if (store != 0xFFFFFFFF) {
-    send_StoreAddedEvent(store);
-  }
-  return store; // TODO: let's change this to bool for success / fail
-}
-
 void MTP_class::loop(void) {
   if (g_pmtpd_interval) {
     g_pmtpd_interval = nullptr; // clear out timer.
@@ -282,10 +273,8 @@ void MTP_class::loop(void) {
     usb_mtp_status = 0x01;
   }
 
-  // See if Storage needs to do anything - it now returns true if it thinks we should reset the device.
-  if (storage_.loop()) {
-    send_DeviceResetEvent();
-  }
+  // Storage loop() handles removable media insert / remove
+  storage_.loop();
 }
 
 
@@ -938,27 +927,29 @@ uint32_t MTP_class::formatStore(struct MTPContainer &cmd) {
 
 // GetStorageIDs, MTP 1.1 spec, page 213
 //   Command: no parameters
-//   Data: Teensy->PC: StorageID array
+//   Data: Teensy->PC: StorageID array (page 45)
 //   Response: no parameters
 uint32_t MTP_class::GetStorageIDs(struct MTPContainer &cmd) {
   uint32_t num = storage_.get_FSCount();
-  // Quick and dirty, we maybe allow some storages to be removed, lets loop
-  // through and see if there are any...
-  printf("MTP_class::GetStorageIDs: cnt:%u\n", num);
+  // first count the number of filesystems
   uint32_t num_valid = 0;
-  const char *sz;
-  for (uint32_t ii = 0; ii < num; ii++) {
-
-    if ((sz = storage_.get_FSName(ii)) != nullptr) {
-      num_valid++; // storage id
-      printf("\t%u(%s) %u\n", ii, sz, num_valid);
-    }
+  for (uint32_t i = 0; i < num; i++) {
+    const char *name = storage_.get_FSName(i);
+    if (name) num_valid++;
   }
   writeDataPhaseHeader(cmd, 4 + num_valid * 4);
   write32(num_valid); // number of storages (disks)
-  for (uint32_t ii = 0; ii < num; ii++) {
-    if (storage_.get_FSName(ii))
-      write32(Store2Storage(ii)); // storage id
+  for (uint32_t i = 0; i < num; i++) {
+    const char *name = storage_.get_FSName(i);
+    if (name) {
+      uint32_t StorageID = Store2Storage(i);
+      if (!storage_.isMediaPresent(i)) {
+        // 0x0000 in low 16 bits indicates removalable media not present, page 213
+        StorageID &= 0xFFFF0000;
+      }
+      printf("\t%u(%s) StorageID=%08X\n", i, name, StorageID);
+      write32(StorageID); // storage id
+    }
   }
   write_finish();
   storage_ids_sent_ = true;
@@ -967,7 +958,7 @@ uint32_t MTP_class::GetStorageIDs(struct MTPContainer &cmd) {
 
 // GetStorageInfo, MTP 1.1 spec, page 214
 //   Command: 1 parameter: StorageID
-//   Data: Teensy->PC: StorageInfo
+//   Data: Teensy->PC: StorageInfo (page 46)
 //   Response: no parameters
 uint32_t MTP_class::GetStorageInfo(struct MTPContainer &cmd) {
   uint32_t storage = cmd.params[0];
@@ -975,7 +966,12 @@ uint32_t MTP_class::GetStorageInfo(struct MTPContainer &cmd) {
   const char *name = storage_.get_FSName(store);
   // const char *volumeID = storage_.get_volumeID(store);
   if (name == nullptr) {
-    printf("MTP_class::GetStorageInfo %u is not valid (Nullptr name)\n");
+    printf("MTP_class::GetStorageInfo %u is not valid (Nullptr name)\n", store);
+    return MTP_RESPONSE_STORE_NOT_AVAILABLE;
+  }
+  if (!storage_.isMediaPresent(store)) {
+    printf("MTP_class::GetStorageInfo %u(%s) removable media not present\n", store, name);
+    // TODO: is this correct response for removable media not present?
     return MTP_RESPONSE_STORE_NOT_AVAILABLE;
   }
   static const char _volumeID[] = "";
@@ -1000,7 +996,7 @@ uint32_t MTP_class::GetStorageInfo(struct MTPContainer &cmd) {
   writestring(name); // storage descriptor
   writestring(_volumeID); // volume identifier
   write_finish();
-  printf("%d %d name:%s\n", storage, store, name);
+  printf("\t%x name:%s\n", storage, name);
   return MTP_RESPONSE_OK;
 }
 
@@ -1015,11 +1011,13 @@ uint32_t MTP_class::GetNumObjects(struct MTPContainer &cmd) {
   if (format) {
     return MTP_RESPONSE_SPECIFICATION_BY_FORMAT_UNSUPPORTED;
   }
+  unsigned int num = 0;
   uint32_t store = Storage2Store(storage);
-  storage_.StartGetObjectHandles(store, parent);
-  int num = 0;
-  while (storage_.GetNextObjectHandle(store)) {
-    num++;
+  if (storage_.isMediaPresent(store)) {
+    storage_.StartGetObjectHandles(store, parent);
+    while (storage_.GetNextObjectHandle(store)) {
+      num++;
+    }
   }
   cmd.params[0] = num;
   return MTP_RESPONSE_OK | (1<<28);
@@ -1039,19 +1037,23 @@ uint32_t MTP_class::GetObjectHandles(struct MTPContainer &cmd) {
     write_finish();
     return MTP_RESPONSE_SPECIFICATION_BY_FORMAT_UNSUPPORTED;
   }
-  uint32_t store = Storage2Store(storage);
+  const uint32_t store = Storage2Store(storage);
   uint32_t num_handles = 0;
-  storage_.StartGetObjectHandles(store, parent);
-  while (storage_.GetNextObjectHandle(store)) {
-    num_handles++;
+  if (storage_.isMediaPresent(store)) {
+    storage_.StartGetObjectHandles(store, parent);
+    while (storage_.GetNextObjectHandle(store)) {
+      num_handles++;
+    }
   }
   writeDataPhaseHeader(cmd, 4 + num_handles*4);
-  // ObjectHandle array, page 23 (ObjectHandle), page 20 (array)
-  write32(num_handles);
-  uint32_t handle;
-  storage_.StartGetObjectHandles(store, parent);
-  while ((handle = storage_.GetNextObjectHandle(store)) != 0) {
-      write32(handle);
+  if (storage_.isMediaPresent(store)) {
+    // ObjectHandle array, page 23 (ObjectHandle), page 20 (array)
+    write32(num_handles);
+    uint32_t handle;
+    storage_.StartGetObjectHandles(store, parent);
+    while ((handle = storage_.GetNextObjectHandle(store)) != 0) {
+        write32(handle);
+    }
   }
   write_finish();
   return MTP_RESPONSE_OK;

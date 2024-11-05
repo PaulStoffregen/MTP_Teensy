@@ -69,17 +69,11 @@ public:
   int begin();
   void loop(void);
 
-
   // Add a file system to the list of storages that will be seen by
   // the host computer.  Returns the index of the item within the list
-  #if defined(__SD_H__)
-  uint32_t addFilesystem(SDClass &disk, const char *diskname) {
-    printStream_->println("Add **SDClass** file system");
-    return addFilesystem(disk, diskname, MTP_FSTYPE_SD);
+  bool addFilesystem(FS &disk, const char *diskname) {
+    return storage_.addFilesystem(disk, diskname);
   }
-  #endif
-
-  uint32_t addFilesystem(FS &disk, const char *diskname, mtp_fstype_t fstype = MTP_FSTYPE_UNKNOWN);
 
   // returns the count of file systems that have been added to the storage list
   inline uint32_t getFilesystemCount(void) { return storage_.getFSCount(); }
