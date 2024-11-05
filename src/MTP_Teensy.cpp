@@ -1715,6 +1715,11 @@ size_t MTP_class::write(const void *ptr, size_t len) {
   size_t len_in = len;
   const char *data = (const char *)ptr;
   while (len > 0) {
+    if (usb_mtp_status != 0x01) {
+      printf("write, abort\n");
+      return 0;
+    }
+
     if (transmit_buffer.data == NULL) allocate_transmit_bulk();
     unsigned int avail = transmit_buffer.size - transmit_buffer.len;
     unsigned int to_copy = len;
