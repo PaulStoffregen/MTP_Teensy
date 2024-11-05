@@ -24,6 +24,7 @@
 
 // modified for SDFS by WMXZ
 // Nov 2020 adapted to SdFat-beta / SD combo
+#if 0
 #include "MTP_Teensy.h"
 #include "MTP_Storage.h"
 
@@ -145,4 +146,5 @@ bool MTP_USBFS_Callback::checkUSBFSChangedState(uint8_t storage_index, FS *pfs) 
 	return send_device_reset;
 }
 
+#endif
 #endif
