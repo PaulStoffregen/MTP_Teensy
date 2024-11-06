@@ -935,12 +935,17 @@ uint32_t MTP_class::GetStorageIDs(struct MTPContainer &cmd) {
   uint32_t num_valid = 0;
   for (uint32_t i = 0; i < num; i++) {
     const char *name = storage_.get_FSName(i);
+#if 0
     if (name) num_valid++;
+#else
+    if (name && storage_.isMediaPresent(i)) num_valid++;
+#endif
   }
   writeDataPhaseHeader(cmd, 4 + num_valid * 4);
   write32(num_valid); // number of storages (disks)
   for (uint32_t i = 0; i < num; i++) {
     const char *name = storage_.get_FSName(i);
+#if 0
     if (name) {
       uint32_t StorageID = Store2Storage(i);
       if (!storage_.isMediaPresent(i)) {
@@ -950,6 +955,18 @@ uint32_t MTP_class::GetStorageIDs(struct MTPContainer &cmd) {
       printf("\t%u(%s) StorageID=%08X\n", i, name, StorageID);
       write32(StorageID); // storage id
     }
+#else
+    if (name && storage_.isMediaPresent(i)) {
+      // page 213 says "Removable storages with no inserted media shall be returned
+      // in the dataset returned by this operation as well, though they would contain
+      // a value of 0x0000 in the lower 16 bits indicating that they are not present"
+      // However, Linux seems to get confused by these StorageIDs.  Because Windows
+      // just hides them anyway, we'll not send these StorageID for removed media.
+      uint32_t StorageID = Store2Storage(i);
+      printf("\t%u(%s) StorageID=%08X\n", i, name, StorageID);
+      write32(StorageID); // storage id
+    }
+#endif
   }
   write_finish();
   storage_ids_sent_ = true;
