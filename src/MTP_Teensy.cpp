@@ -314,7 +314,7 @@ void MTP_class::processIntervalTimer() {
           return_code = GetStorageIDs(container);
           break;
         case 0x1005: // GetStorageInfo
-          return_code = GetStorageInfo(container);
+          return_code = GetStorageInfo(container, false); // media access not allowed for ISR
           break;
         case 0x9801: // GetObjectPropsSupported
           return_code = GetObjectPropsSupported(container);
@@ -977,7 +977,7 @@ uint32_t MTP_class::GetStorageIDs(struct MTPContainer &cmd) {
 //   Command: 1 parameter: StorageID
 //   Data: Teensy->PC: StorageInfo (page 46)
 //   Response: no parameters
-uint32_t MTP_class::GetStorageInfo(struct MTPContainer &cmd) {
+uint32_t MTP_class::GetStorageInfo(struct MTPContainer &cmd, bool mediaAccessAllowed) {
   uint32_t storage = cmd.params[0];
   uint32_t store = Storage2Store(storage);
   const char *name = storage_.get_FSName(store);
@@ -1004,9 +1004,9 @@ uint32_t MTP_class::GetStorageInfo(struct MTPContainer &cmd) {
   write16(0x0000);       // access capability (read-write)
 
   //elapsedMillis em;
-  uint64_t ntotal = storage_.totalSize(store);
+  uint64_t ntotal = storage_.totalSize(store, mediaAccessAllowed);
   write64(ntotal); // max capacity
-  uint64_t nused = storage_.usedSize(store);
+  uint64_t nused = storage_.usedSize(store, mediaAccessAllowed);
   write64((ntotal - nused)); // free space (100M)
   //printf("GetStorageInfo dt:%u tot:%lu, used: %lu\n", (uint32_t)em, ntotal, nused);
   write32(0xFFFFFFFFUL); // free space (objects)

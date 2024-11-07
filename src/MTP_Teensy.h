@@ -184,7 +184,7 @@ private:
   uint32_t GetDeviceInfo(struct MTPContainer &cmd);
   void WriteDescriptor();
   uint32_t GetStorageIDs(struct MTPContainer &cmd);
-  uint32_t GetStorageInfo(struct MTPContainer &cmd);
+  uint32_t GetStorageInfo(struct MTPContainer &cmd, bool mediaAccessAllowed=true);
 
   uint32_t GetNumObjects(struct MTPContainer &cmd);
 

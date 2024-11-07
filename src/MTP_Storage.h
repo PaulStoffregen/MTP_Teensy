@@ -172,16 +172,28 @@ public:
 		if (fs[store] == nullptr) return false;
 		return fs[store]->rmdir(filename);
 	}
-	uint64_t totalSize(uint32_t store) {
+	uint64_t totalSize(uint32_t store, bool mediaAccessAllowed=true) {
 		if (fs[store] == nullptr) {
 			Serial.printf("$$$ MTPStorage::totalsize nullptr %u\n", store);
 			return (uint64_t)-1;
 		}
-		return fs[store]->totalSize();
+		if (mediaAccessAllowed) {
+			uint64_t total = fs[store]->totalSize();
+			capacity_mb_[store] = total >> 20;
+			return total;
+		} else {
+			return (uint64_t)capacity_mb_[store] << 20;
+		}
 	}
-	uint64_t usedSize(uint32_t store) {
+	uint64_t usedSize(uint32_t store, bool mediaAccessAllowed=true) {
 		if (fs[store] == nullptr) return (uint64_t)-1;
-		return fs[store]->usedSize();
+		if (mediaAccessAllowed) {
+			uint64_t used = fs[store]->usedSize();
+			used_mb_[store] = used >> 20;
+			return used;
+		} else {
+			return (uint64_t)used_mb_[store] << 20;
+		}
 	}
 	bool CompleteCopyFile(uint32_t from, uint32_t to); 
 	bool CopyByPathNames(uint32_t store0, char *oldfilename, uint32_t store1, char *newfilename);
@@ -250,6 +262,8 @@ private:
 	FS *fs[MTPD_MAX_FILESYSTEMS] = {nullptr};
 	uint16_t store_first_child_[MTPD_MAX_FILESYSTEMS] = {0};
 	uint8_t store_scanned_[MTPD_MAX_FILESYSTEMS] = {0};
+	uint32_t capacity_mb_[MTPD_MAX_FILESYSTEMS] = {0};
+	uint32_t used_mb_[MTPD_MAX_FILESYSTEMS] = {0};
 	uint32_t index_entries_ = 0;
 	bool index_generated_ = false;
 	bool all_scanned_ = false;

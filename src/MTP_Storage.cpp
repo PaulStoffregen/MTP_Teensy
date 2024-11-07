@@ -1728,6 +1728,8 @@ bool MTPStorage::addFilesystem(FS &disk, const char *diskname)
 	fs[index] = &disk;
 	store_first_child_[index] = 0;
 	store_scanned_[index] = false;
+	totalSize(index); // update totalSize & usedSize for interrupt-safe GetStorageInfo
+	usedSize(index);
 	DBGPrintf("addFilesystem: %d %s %x\n", fsCount, diskname, (uint32_t)fs[index]);
 	media_present[index] = disk.mediaPresent();
 	if (media_present[index]) {
@@ -1897,6 +1899,8 @@ void MTPStorage::loop() {
     bool media_present_now = fs[i]->mediaPresent();
     if (media_present_now && !media_present[i]) {
       MTP_class::PrintStream()->printf("\nMedia inserted \"%s\"(%u)\n", get_FSName(i), i);
+      totalSize(i); // update totalSize & usedSize for interrupt-safe GetStorageInfo
+      usedSize(i);
       MTP.send_StoreAddedEvent(i); // page 275
       //MTP.send_StorageInfoChangedEvent(i); // page 278
       media_present[i] = true;
