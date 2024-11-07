@@ -144,9 +144,6 @@ public:
 		return nullptr;
 	}
 
-	inline uint8_t storeMinorIndex(uint32_t store) {return store_storage_minor_index_[store];}
-
-
 	// Return count of files systems in storage list
   	uint32_t get_FSCount(void) { return fsCount; }
 
@@ -256,7 +253,6 @@ private:
 	FS *fs[MTPD_MAX_FILESYSTEMS] = {nullptr};
 	uint16_t store_first_child_[MTPD_MAX_FILESYSTEMS] = {0};
 	uint8_t store_scanned_[MTPD_MAX_FILESYSTEMS] = {0};
-	uint8_t store_storage_minor_index_[MTPD_MAX_FILESYSTEMS] = {0};
 	uint32_t index_entries_ = 0;
 	bool index_generated_ = false;
 	bool all_scanned_ = false;

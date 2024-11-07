@@ -241,8 +241,12 @@ public:
       char *pb,
       uint32_t cb); // you can extend the send object buffer by this buffer
 
- inline uint32_t Store2Storage(uint32_t store) {
-    return ((store + 1) << 16) | storage_.storeMinorIndex(store);
+  // page 45: "StorageID ... most-significant 16 bits identify a physical storage
+  // location, such as a removable memory card or an internal memory bank. The
+  // least-significant 16 bits identify a logical partition of that physical
+  // storage."
+  inline uint32_t Store2Storage(uint32_t store) {
+    return ((store + 1) << 16) | 0x0001;
   }
   static inline uint32_t Storage2Store(uint32_t storage) {
     return (storage >> 16) - 1;

@@ -1711,7 +1711,6 @@ bool MTPStorage::addFilesystem(FS &disk, const char *diskname)
 	int index;
 	if (fsCount < MTPD_MAX_FILESYSTEMS) {
 		index = fsCount++;
-		store_storage_minor_index_[index] = 0;
 	} else {
 		// See if we can reuse index
 		bool found = false;
@@ -1729,7 +1728,6 @@ bool MTPStorage::addFilesystem(FS &disk, const char *diskname)
 	fs[index] = &disk;
 	store_first_child_[index] = 0;
 	store_scanned_[index] = false;
-	store_storage_minor_index_[index]++;
 	DBGPrintf("addFilesystem: %d %s %x\n", fsCount, diskname, (uint32_t)fs[index]);
 	media_present[index] = disk.mediaPresent();
 	if (media_present[index]) {
