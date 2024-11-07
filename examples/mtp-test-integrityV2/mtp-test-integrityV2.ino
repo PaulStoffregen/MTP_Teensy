@@ -121,13 +121,9 @@ USBFilesystem pf5(myusb);
 USBFilesystem pf6(myusb);
 USBFilesystem pf7(myusb);
 USBFilesystem pf8(myusb);
-USBFilesystem *filesystem_list[] = {&pf1, &pf2, &pf3, &pf4, &pf5, &pf6, &pf7, &pf8};
-
-// Quick and dirty
-// Quick and dirty
-#define CNT_USBFS  (sizeof(filesystem_list)/sizeof(filesystem_list[0]))
-uint32_t filesystem_list_store_ids[CNT_USBFS] = {0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL};
-char  filesystem_list_display_name[CNT_USBFS][20];
+USBFilesystem *usb_filesystem_list[] = {&pf1, &pf2, &pf3, &pf4, &pf5, &pf6, &pf7, &pf8};
+const int nfs_usb = sizeof(usb_filesystem_list)/sizeof(USBFilesystem *);
+char filesystem_list_display_name[nfs_usb][20];
 #endif
 
 // =======================================================================
@@ -209,11 +205,13 @@ void setup()
   delay(500);
 
   #if USE_MSC == 1
+  DBGSerial.println("\nInitializing USB MSC drives...");
   myusb.begin();
-  //DBGSerial.print("Initializing MSC Drives ...");
-  //DBGSerial.println("\nInitializing USB MSC drives...");
-  //DBGSerial.println("MSC and  initialized.");
-  checkMSCChanges();
+  for (int i=0; i < nfs_usb; i++) {
+    snprintf(filesystem_list_display_name[i], 20, "USB Disk %d", i + 1);
+    MTP.addFilesystem(*usb_filesystem_list[i], filesystem_list_display_name[i]);
+  }
+  DBGSerial.println("USB MSC initialized.");
   #endif
 
   //Serial.printf("USBPHY1_TX = %08X\n", USBPHY1_TX);
@@ -335,11 +333,8 @@ void loop()
     while (DBGSerial.read() != -1) ; // remove rest of characters.
   } else {
     #if USE_MSC == 1
-    checkMSCChanges();
+    myusb.Task();
     #endif
-    //#if USE_SD == 1
-    //checkSDChanges();
-    //#endif
     MTP.loop();
   }
 
