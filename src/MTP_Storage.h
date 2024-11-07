@@ -55,9 +55,6 @@
 #endif
 
 
-typedef bool (STORAGE_LOOP_CB)(uint8_t store, FS *pfs);
-
-
 
 class MTPStorage final {
 public:
