@@ -1708,15 +1708,15 @@ bool MTPStorage::CopyByPathNames(uint32_t store0, char *oldfilename, uint32_t st
 
 bool MTPStorage::addFilesystem(FS &disk, const char *diskname)
 {
-	int index;
+	int store;
 	if (fsCount < MTPD_MAX_FILESYSTEMS) {
-		index = fsCount++;
+		store = fsCount++;
 	} else {
-		// See if we can reuse index
+		// See if we can reuse store
 		bool found = false;
 		for (int i=0; i < MTPD_MAX_FILESYSTEMS; i++) {
 			if (fs[i] == nullptr) {
-				index = i;
+				store = i;
 				found = true;
 				break;
 			}
@@ -1724,16 +1724,16 @@ bool MTPStorage::addFilesystem(FS &disk, const char *diskname)
 		if (!found) return false; // no room left
 	}
 	if (!diskname) diskname = ""; // TODO: get volume name?
-	name[index] = diskname;
-	fs[index] = &disk;
-	store_first_child_[index] = 0;
-	store_scanned_[index] = false;
-	totalSize(index); // update totalSize & usedSize for interrupt-safe GetStorageInfo
-	usedSize(index);
-	DBGPrintf("addFilesystem: %d %s %x\n", fsCount, diskname, (uint32_t)fs[index]);
-	media_present[index] = disk.mediaPresent();
-	if (media_present[index]) {
-		MTP.send_StoreAddedEvent(index);
+	name[store] = diskname;
+	fs[store] = &disk;
+	store_first_child_[store] = 0;
+	store_scanned_[store] = false;
+	totalSize(store); // update totalSize & usedSize for interrupt-safe GetStorageInfo
+	usedSize(store);
+	DBGPrintf("addFilesystem: %d %s %x\n", fsCount, diskname, (uint32_t)fs[store]);
+	media_present[store] = disk.mediaPresent();
+	if (media_present[store]) {
+		MTP.send_StoreAddedEvent(store);
 	}
 	return true;
 }
@@ -1894,28 +1894,28 @@ void MTPStorage::loop() {
   static unsigned int count=0;
   MTP_class::PrintStream()->printf("media change check #%u\n", ++count);
 #endif
-  for (uint8_t i = 0; i < MTP_FSTYPE_MAX; i++) {
-    if (fs[i] == nullptr) continue;
-    bool media_present_now = fs[i]->mediaPresent();
-    if (media_present_now && !media_present[i]) {
-      MTP_class::PrintStream()->printf("\nMedia inserted \"%s\"(%u)\n", get_FSName(i), i);
-      totalSize(i); // update totalSize & usedSize for interrupt-safe GetStorageInfo
-      usedSize(i);
-      MTP.send_StoreAddedEvent(i); // page 275
-      //MTP.send_StorageInfoChangedEvent(i); // page 278
-      media_present[i] = true;
+  for (unsigned int store = 0; store < fsCount; store++) {
+    if (fs[store] == nullptr) continue;
+    bool media_present_now = fs[store]->mediaPresent();
+    bool media_present_before = media_present[store];
+    if (media_present_now && !media_present_before) {
+      MTP_class::PrintStream()->printf("\nMedia inserted \"%s\"(%u)\n", get_FSName(store), store);
+      totalSize(store); // update totalSize & usedSize for interrupt-safe GetStorageInfo
+      usedSize(store);
+      MTP.send_StoreAddedEvent(store); // page 275
+      media_present[store] = true;
     }
-    if (!media_present_now && media_present[i]) {
-      clearStoreIndexItems(i);
-      MTP_class::PrintStream()->printf("\nMedia removed \"%s\"(%u)\n", get_FSName(i), i);
-      MTP.send_StoreRemovedEvent(i); // page 276
-      //MTP.send_StorageInfoChangedEvent(i); // page 278
-      //MTP.send_DeviceResetEvent(); // page 277
+    if (!media_present_now && media_present_before) {
+      clearStoreIndexItems(store);
+      MTP_class::PrintStream()->printf("\nMedia removed \"%s\"(%u)\n", get_FSName(store), store);
+      MTP.send_StoreRemovedEvent(store); // page 276
+      //MTP.send_StorageInfoChangedEvent(store); // page 278 - do not use
+      //MTP.send_DeviceResetEvent(); // page 277 - definitely do not use!
 
       // TODO: how to forget info about files in mtpindex.dat?
       // TODO: how to forget info about files memory index?
       // TODO: what if the removed media had the mtpindex.dat file for other drives?
-      media_present[i] = false;
+      media_present[store] = false;
     }
   }
 }
