@@ -12,8 +12,8 @@ uint8_t current_store = 0;
 
 LittleFS_RAM      ramdisk;
 LittleFS_Program  progdisk;
-LittleFS_SPIFlash flashchip;
-LittleFS_SPIFlash flash2chip;
+LittleFS_SPI      flashchip;
+LittleFS_SPI      flash2chip;
 
 SDClass sd;
 

@@ -53,13 +53,10 @@
 LittleFS_RAM        ramdisk;
 LittleFS_Program    progdisk;
 
-LittleFS_SPIFlash   sFlash;  
-//LittleFS_SPINAND    sNand;
-//LittleFS_SPIFram    sFram;
+LittleFS_SPI        sFlash;
 
 // QSPI devices are only available on the Teensy 4.1
-//LittleFS_QSPIFlash  qFlash;
-//LittleFS_QPINAND    qNand;
+//LittleFS_QSPI     qFlash;
 
 
 /*** Chip Select for SPI Memory chips ***/
@@ -68,8 +65,6 @@ LittleFS_SPIFlash   sFlash;
  * CS pin can be any digital pin.
  */
 const int csFlash = 6;
-//const int csNand  = 6;
-//const int csFram  = 6;
 
 void setup()
 {
@@ -118,16 +113,8 @@ void setup()
   /*****  SPI Flash  ****/
   // note the initialization pattern
    sFlash.begin(csFlash, SPI);
-   MTP.addFilesystem(sFlash, "sflash");
+   MTP.addFilesystem(sFlash, "sFlash");
    
-  /***** SPI NAND ****/
-  // sNand.begin(csNand, SPI);
-  // MTP.addFilesystem(sNand, "sNand");
-  
-  /***** SPI FRAM ****/
-  // sFram.begin(csFram, SPI);
-  // MTP.addFilesystem(sFram, "sFram");
-  
   // QSPI follows the same pattern of starting the device with the appropriate begin 
   // just as you would for a LittleFS device without MTP.  
   // Next for the device you identified you tell it to assign a file system with the
@@ -135,12 +122,8 @@ void setup()
   
   /***** QSPI Flash ****/
   // qFlash.begin();
-  // MTP.addFilesystem(qFlash, "sNand");
+  // MTP.addFilesystem(qFlash, "qFlash");
   
-  /***** QSPI Nand ****/
-  // sNand.begin();
-  // MTP.addFilesystem(sNand, "sNand");
-
   // sets the storage for the index file
   Serial.println("\nSetup done");
 

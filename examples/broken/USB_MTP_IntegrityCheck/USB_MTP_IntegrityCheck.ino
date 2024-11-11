@@ -56,7 +56,7 @@ SDList_t myFS[] = {
 #include <LittleFS.h>
 #define LFSRAM_SIZE 65536 // probably more than enough...
 LittleFS_RAM lfsram;
-LittleFS_SPIFlash flash5;
+LittleFS_SPI flash5;
 #define chipSelect 5  // use for access flash on audio or prop shield
 
 //==================================================
