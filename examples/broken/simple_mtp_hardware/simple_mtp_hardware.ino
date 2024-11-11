@@ -50,6 +50,7 @@ void setup() {
 #ifdef USE_MEMORY_FS
   if (memfs.begin(MEMFS_SIZE)) {
     Serial.printf("Memory Drive of size: %u initialized\n", MEMFS_SIZE);
+    // FIXME: MTP.addFilesystem() no longer returns internal store numbers
     uint32_t istore = MTP.addFilesystem(memfs, "RAM");
     Serial.printf("Set Storage Index drive to %u\n", istore);
   }
@@ -57,6 +58,7 @@ void setup() {
 #else
   if (lfsram.begin(MEMFS_SIZE)) {
     Serial.printf("Ram Drive of size: %u initialized\n", MEMFS_SIZE);
+    // FIXME: MTP.addFilesystem() no longer returns internal store numbers
     uint32_t istore = MTP.addFilesystem(lfsram, "RAM");
     Serial.printf("Set Storage Index drive to %u\n", istore);
   }

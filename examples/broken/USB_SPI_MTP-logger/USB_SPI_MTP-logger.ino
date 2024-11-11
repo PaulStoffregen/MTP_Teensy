@@ -55,6 +55,7 @@ void storage_configure() {
     DBGSerial.printf("Ram Drive of size: %u initialized\n", LFSRAM_SIZE);
     lfsmtpcb.set_formatLevel(
         true); // sets formating to lowLevelFormat, false indicates quickFormat
+    // FIXME: MTP.addFilesystem() no longer returns internal store numbers
     uint32_t istore = storage.addFilesystem(lfsram, "RAM", &lfsmtpcb,
                                             (uint32_t)(LittleFS *)&lfsram);
     if (istore != 0xFFFFFFFFUL)

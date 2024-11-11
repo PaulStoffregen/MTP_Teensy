@@ -224,6 +224,7 @@ void storage_configure() {
   // lets initialize a RAM drive.
   if (lfsram.begin(LFSRAM_SIZE)) {
     Serial.printf("Ram Drive of size: %u initialized\n", LFSRAM_SIZE);
+    // FIXME: MTP.addFilesystem() no longer returns internal store numbers
     uint32_t istore = MTP.addFilesystem(lfsram, "Prog");
     if (istore != 0xFFFFFFFFUL)
       MTP.useFileSystemIndexFileStore(istore);

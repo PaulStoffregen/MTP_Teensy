@@ -157,6 +157,7 @@ void setup() {
 #endif
   if (lfsram.begin(LFSRAM_SIZE)) {
     rstream.printf("Ram Drive of size: %u initialized\n", LFSRAM_SIZE);
+    // FIXME: MTP.addFilesystem() no longer returns internal store numbers
     uint32_t istore = MTP.addFilesystem(lfsram, "RAM");
     if (istore != 0xFFFFFFFFUL) {
       MTP.storage()->setIndexStore(istore);
@@ -181,6 +182,7 @@ void setup() {
 #if defined(USE_BUILTIN_SDCARD)
   // always add
   sdio_previously_present = sdSDIO.begin(BUILTIN_SDCARD);
+  // FIXME: MTP.addFilesystem() no longer returns internal store numbers
   index_sdio_storage = MTP.addFilesystem(sdSDIO, "SD_Builtin");
   //MTP.setIndexStore(index_sdio_storage);
   //rstream.printf("Set Storage Index drive to %u\n", index_sdio_storage);
@@ -188,10 +190,12 @@ void setup() {
 
   #ifdef ENABLE_SPI_SD_MEDIA_PRESENT
   sdspi_previously_present = sdSPI.begin(SD_ChipSelect);
+  // FIXME: MTP.addFilesystem() no longer returns internal store numbers
   index_sdspi_storage = MTP.addFilesystem(sdSPI, "SD_SPI");
   Serial.printf("*** SD SPI(%u) added FS: %u %u\n", SD_ChipSelect, sdspi_previously_present, index_sdspi_storage);
   #else
   if (sdSPI.begin(SD_ChipSelect)) {
+    // FIXME: MTP.addFilesystem() no longer returns internal store numbers
     index_sdspi_storage = MTP.addFilesystem(sdSPI, "SD_SPI");
   } else {
     rstream.printf("SD_SPI(%d) not added", SD_ChipSelect);

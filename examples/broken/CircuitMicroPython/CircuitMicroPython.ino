@@ -482,6 +482,7 @@ void CheckUSBDriveChanges() {
           snprintf(filesystem_list_display_name[i], sizeof(filesystem_list_display_name[i]), "MSC%d-%s", i, volName);
         else
           snprintf(filesystem_list_display_name[i], sizeof(filesystem_list_display_name[i]), "MSC%d", i);
+        // FIXME: MTP.addFilesystem() no longer returns internal store numbers
         filesystem_list_store_ids[i] = MTP.addFilesystem(*filesystem_list[i], filesystem_list_display_name[i]);
 
         // Try to send store added. if > 0 it went through = 0 stores have not been enumerated

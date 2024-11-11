@@ -124,6 +124,7 @@ void setup() {
 #endif
   if (lfsram.begin(LFSRAM_SIZE)) {
     DBGSerial.printf("Ram Drive of size: %u initialized\n", LFSRAM_SIZE);
+    // FIXME: MTP.addFilesystem() no longer returns internal store numbers
     uint32_t istore = MTP.addFilesystem(lfsram, "RAM");
     DBGSerial.printf("Set Storage Index drive to %u\n", istore);
   }

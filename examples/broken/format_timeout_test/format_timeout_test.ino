@@ -36,8 +36,6 @@ FormatFS ffs50(5000);
 
 #define DBGSerial Serial
 
-MTPStorage storage;     // TODO: storage inside MTP instance, not separate class
-MTPD    MTP(&storage);  // TODO: MTP instance created by default
 void setup()
 {
   DBGSerial.begin(9600);
@@ -53,16 +51,16 @@ void setup()
   MTP.begin();
 
   if (lfsram.begin(LFSRAM_SIZE)) {
-    storage.addFilesystem(lfsram, "RAM");
+    MTP.addFilesystem(lfsram, "RAM");
   }
 
-  storage.addFilesystem(ffs10, "FFS1000");
-  storage.addFilesystem(ffs20, "FFS2000");
-  storage.addFilesystem(ffs25, "FFS2500");
-  storage.addFilesystem(ffs30, "FFS3000");
-  storage.addFilesystem(ffs31, "FFS3100");
-  storage.addFilesystem(ffs35, "FFS3500");
-  storage.addFilesystem(ffs50, "FFS5000");
+  MTP.addFilesystem(ffs10, "FFS1000");
+  MTP.addFilesystem(ffs20, "FFS2000");
+  MTP.addFilesystem(ffs25, "FFS2500");
+  MTP.addFilesystem(ffs30, "FFS3000");
+  MTP.addFilesystem(ffs31, "FFS3100");
+  MTP.addFilesystem(ffs35, "FFS3500");
+  MTP.addFilesystem(ffs50, "FFS5000");
 }
 
 void loop()
@@ -74,14 +72,14 @@ void loop()
     switch (command) {
     case '1':
       // first dump list of storages:
-      fsCount = storage.getFSCount();
+      fsCount = MTP.getFSCount();
       DBGSerial.printf("\nDump Storage list(%u)\n", fsCount);
       for (uint32_t ii = 0; ii < fsCount; ii++) {
         DBGSerial.printf("store:%u storage:%x name:%s fs:%x\n", ii, MTP.Store2Storage(ii),
-                         storage.getStoreName(ii), (uint32_t)storage.getStoreFS(ii));
+                         MTP.getStoreName(ii), (uint32_t)MTP.getStoreFS(ii));
       }
       DBGSerial.println("\nDump Index List");
-      storage.dumpIndexList();
+      MTP.dumpIndexList();
       break;
     case'r':
       DBGSerial.println("Reset");

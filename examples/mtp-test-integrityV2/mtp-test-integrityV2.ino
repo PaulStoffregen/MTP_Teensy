@@ -123,7 +123,7 @@ USBFilesystem pf7(myusb);
 USBFilesystem pf8(myusb);
 USBFilesystem *usb_filesystem_list[] = {&pf1, &pf2, &pf3, &pf4, &pf5, &pf6, &pf7, &pf8};
 const int nfs_usb = sizeof(usb_filesystem_list)/sizeof(USBFilesystem *);
-char filesystem_list_display_name[nfs_usb][20];
+char usb_filesystem_list_display_name[nfs_usb][20];
 #endif
 
 // =======================================================================
@@ -208,8 +208,8 @@ void setup()
   DBGSerial.println("\nInitializing USB MSC drives...");
   myusb.begin();
   for (int i=0; i < nfs_usb; i++) {
-    snprintf(filesystem_list_display_name[i], 20, "USB Disk %d", i + 1);
-    MTP.addFilesystem(*usb_filesystem_list[i], filesystem_list_display_name[i]);
+    snprintf(usb_filesystem_list_display_name[i], 20, "USB Disk %d", i + 1);
+    MTP.addFilesystem(*usb_filesystem_list[i], usb_filesystem_list_display_name[i]);
   }
   DBGSerial.println("USB MSC initialized.");
   #endif
