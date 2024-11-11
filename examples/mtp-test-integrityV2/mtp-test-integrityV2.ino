@@ -235,38 +235,20 @@ void loop()
     switch (command) {
     case '1':
       // first dump list of storages:
-      fsCount = MTP.getFilesystemCount();
-      DBGSerial.printf("\nDump Storage list(%u)\n", fsCount);
-      for (uint32_t ii = 0; ii < fsCount; ii++) {
-        DBGSerial.printf("store:%u storage:%x name:%s fs:%x pn:", ii,
-                         MTP.Store2Storage(ii), MTP.getFilesystemNameByIndex(ii),
-                         (uint32_t)MTP.getFilesystemByIndex(ii));
-    /*    char dest[12];     // Destination string
-        char key[] = "MSC";
-        strncpy(dest, MTP.getFilesystemNameByIndex(ii), 3);
-        if(strcmp(key, dest) == 0) {
-          DBGSerial.println(getFSPN(ii));
-          DBGSerial.println("USB Storage");
-        } else {
-          DBGSerial.println(getFSPN(ii));
-        }
-     */
-          DBGSerial.println(getFSPN(ii));
-      } 
-      //DBGSerial.println("\nDump Index List");
-      //MTP.storage()->dumpIndexList();
+      MTP.printFilesystemsInfo();
+      //Serial.println("\nIndex List");
+      //MTP.printIndexList();
       break;
     case '2':
-      if (storage_index < MTP.getFilesystemCount()) {
+      myfs = MTP.getFilesystemByIndex(storage_index);
+      current_store = storage_index;
+      if (myfs) {
         DBGSerial.printf("Storage Index %u Name: %s Selected\n", storage_index,
-        MTP.getFilesystemNameByIndex(storage_index));
-        myfs = MTP.getFilesystemByIndex(storage_index);
-        current_store = storage_index;
+          MTP.getNameByIndex(storage_index));
       } else {
         DBGSerial.printf("Storage Index %u out of range\n", storage_index);
       }
       break;
-
     case 'l': listFiles(); break;
     case 'e': eraseFiles(); break;
     case 's':
@@ -283,7 +265,7 @@ void loop()
     case 'x': stopLogging(); break;
     case'r':
       DBGSerial.println("Reset");
-      MTP.send_DeviceResetEvent();
+      MTP.reset();
       break;
     case 'd': dumpLog(); break;
     case 'b':

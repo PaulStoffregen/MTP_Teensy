@@ -12,13 +12,14 @@ USBHost myusb;
 USBHub hub1(myusb);
 USBHub hub2(myusb);
 USBHub hub3(myusb);
-USBHub hub4(myusb);
 
 // Instances for the number of USB drives you are using.
 USBDrive myDrive1(myusb);
 USBDrive myDrive2(myusb);
-USBDrive *drive_list[] = {&myDrive1, &myDrive2};
-bool drive_previous_connected[] = {false, false};
+USBDrive myDrive3(myusb);
+USBDrive myDrive4(myusb);
+USBDrive myDrive5(myusb);
+USBDrive myDrive6(myusb);
 
 // Instances for accessing the files on each drive
 USBFilesystem pf1(myusb);
@@ -29,12 +30,6 @@ USBFilesystem pf5(myusb);
 USBFilesystem pf6(myusb);
 USBFilesystem pf7(myusb);
 USBFilesystem pf8(myusb);
-
-USBFilesystem *filesystem_list[] = {&pf1, &pf2, &pf3, &pf4, &pf5, &pf6, &pf7, &pf8};
-
-#define CNT_USBFS  (sizeof(filesystem_list)/sizeof(filesystem_list[0]))
-uint32_t filesystem_list_store_ids[CNT_USBFS] = {0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL, 0xFFFFFFFFUL};
-char  filesystem_list_display_name[CNT_USBFS][20];
 
 
 uint32_t LFSRAM_SIZE = 65536; // probably more than enough...
@@ -99,22 +94,28 @@ void setup() {
 #endif
   if (lfsram.begin(LFSRAM_SIZE)) {
     Serial.printf("Ram Drive of size: %u initialized\n", LFSRAM_SIZE);
-    uint32_t istore = MTP.addFilesystem(lfsram, "RAM");
-    Serial.printf("Set Storage Index drive to %u\n", istore);
+    MTP.addFilesystem(lfsram, "RAM");
   }
   SelectedFS = &lfsram;  // so we don't start of with NULL pointer
 
-  myusb.begin();
-
   Serial.print("Initializing USB Drives ...");
-  checkUSBDrives();
+  myusb.begin();
+  MTP.addFilesystem(pf1, "USB1");
+  MTP.addFilesystem(pf2, "USB2");
+  MTP.addFilesystem(pf3, "USB3");
+  MTP.addFilesystem(pf4, "USB4");
+  MTP.addFilesystem(pf5, "USB5");
+  MTP.addFilesystem(pf6, "USB6");
+  MTP.addFilesystem(pf7, "USB7");
+  MTP.addFilesystem(pf8, "USB8");
+  //checkUSBDrives();
   Serial.println("Initializaton complete.");
 
   menu();
 }
 
 void loop() {
-  checkUSBDrives();
+  myusb.Task();
   MTP.loop();
 
   if (Serial.available()) {
@@ -131,25 +132,19 @@ void loop() {
     case 'e':
       eraseFiles();
       break;
-    case '1': {
+    case '1':
       // first dump list of storages:
-      uint32_t fsCount = MTP.getFilesystemCount();
-      Serial.printf("\nDump Storage list(%u)\n", fsCount);
-      for (uint32_t ii = 0; ii < fsCount; ii++) {
-        Serial.printf("store:%u storage:%x name:%s fs:%x\n", ii,
-                      MTP.Store2Storage(ii), MTP.getFilesystemNameByIndex(ii),
-                      (uint32_t)MTP.getFilesystemNameByIndex(ii));
-      }
-      Serial.println("\nDump Index List");
-      MTP.storage()->dumpIndexList();
-    } break;
+      MTP.printFilesystemsInfo();
+      Serial.println("\nIndex List");
+      MTP.printIndexList();
+      break;
     case '2':
       Serial.printf("Drive # %d Selected\n", drive_index);
       SelectedFS = MTP.getFilesystemByIndex(drive_index);
       break;
     case 'r':
       Serial.println("Send Device Reset Event");
-      MTP.send_DeviceResetEvent();
+      MTP.reset();
       break;
     case '\r':
     case '\n':
@@ -165,67 +160,6 @@ void loop() {
   }
 
 }
-
-void checkUSBDrives() {
-  myusb.Task();
-
-  // lets chec each of the drives.
-  //bool drive_list_changed = false;
-#if 0
-  for (uint16_t drive_index = 0; drive_index < (sizeof(drive_list)/sizeof(drive_list[0])); drive_index++) {
-    USBDrive *pdrive = drive_list[drive_index];
-    if (*pdrive) {
-      if (!drive_previous_connected[drive_index] || !pdrive->filesystemsStarted()) {
-        Serial.printf("\n === Drive index %d found ===\n", drive_index);
-        pdrive->startFilesystems();
-        Serial.printf("\nTry Partition list");
-        pdrive->printPartionTable(Serial);
-        //drive_list_changed = true;
-        drive_previous_connected[drive_index] = true;
-      }
-    } else if (drive_previous_connected[drive_index]) {
-      Serial.printf("\n === Drive index %d removed ===\n", drive_index);
-      drive_previous_connected[drive_index] = false;
-      //drive_list_changed = true;
-    }
-  }
-  bool send_device_reset = false;
-  for (uint8_t i = 0; i < CNT_USBFS; i++) {
-    if (*filesystem_list[i]) {
-      // So file system is valid do we have a MTP id for it?
-      if ( (filesystem_list_store_ids[i] == 0xFFFFFFFFUL)) {
-        Serial.printf("Found new Volume:%u\n", i); Serial.flush();
-        // Lets see if we can get the volume label:
-        char volName[20];
-        if (filesystem_list[i]->mscfs.getVolumeLabel(volName, sizeof(volName)))
-          snprintf(filesystem_list_display_name[i], sizeof(filesystem_list_display_name[i]), "MSC%d-%s", i, volName);
-        else
-          snprintf(filesystem_list_display_name[i], sizeof(filesystem_list_display_name[i]), "MSC%d", i);
-        filesystem_list_store_ids[i] = MTP.addFilesystem(*filesystem_list[i], filesystem_list_display_name[i]);
-
-        // Try to send store added. if > 0 it went through = 0 stores have not been enumerated
-        if (MTP.send_StoreAddedEvent(filesystem_list_store_ids[i]) < 0) send_device_reset = true;
-      } else if (filesystem_list[i]->changed()) {
-        // Something with this file system changed. 
-        Serial.printf("File system changed volume: index=%d, store id:%x\n", i, filesystem_list_store_ids[i]);
-        Serial.println("Show Partition list");
-        filesystem_list[i]->device->printPartionTable(Serial);
-        filesystem_list[i]->changed(false);
-      }
-    }
-    // Or did volume go away?
-    else if ((filesystem_list_store_ids[i] != 0xFFFFFFFFUL) && !*filesystem_list[i] ) {
-      Serial.printf("Remove volume: index=%d, store id:%x\n", i, filesystem_list_store_ids[i]);
-      if (MTP.send_StoreRemovedEvent(filesystem_list_store_ids[i]) < 0) send_device_reset = true;
-      MTP.storage()->removeFilesystem(filesystem_list_store_ids[i]);
-      // Try to send store added. if > 0 it went through = 0 stores have not been enumerated
-      filesystem_list_store_ids[i] = 0xFFFFFFFFUL;
-    }
-  }
-  if (send_device_reset) MTP.send_DeviceResetEvent();
-#endif
-}
-
 
 
 void menu() {
@@ -268,7 +202,7 @@ void eraseFiles() {
     }
     if (pfsLIB.formatter(partVol)) {
       Serial.println("\nFiles erased !");
-      MTP.send_DeviceResetEvent();
+      MTP.reset();
     }
     */
 }

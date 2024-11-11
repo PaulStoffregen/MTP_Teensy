@@ -68,7 +68,7 @@ void setup() {
   MTP.addFilesystem(ram3, "ram3");
   
   // sets the storage for the index file
-  //MTP.useFileSystemIndexFileStore(0);
+  MTP.useFilesystemForIndexList(ram3);
   Serial.println("\nSetup done");
 }
 

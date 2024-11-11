@@ -49,24 +49,18 @@ LittleFS_SPINAND lfsNAND;
 
 // convient for setting up multiple storage configurations
 void storage_configure() {
-#if (1)
   // lets initialize a RAM drive and set the index file to RAM Drive.
   if (lfsram.begin(LFSRAM_SIZE)) {
     DBGSerial.printf("Ram Drive of size: %u initialized\n", LFSRAM_SIZE);
     lfsmtpcb.set_formatLevel(
         true); // sets formating to lowLevelFormat, false indicates quickFormat
     // FIXME: MTP.addFilesystem() no longer returns internal store numbers
-    uint32_t istore = storage.addFilesystem(lfsram, "RAM", &lfsmtpcb,
-                                            (uint32_t)(LittleFS *)&lfsram);
-    if (istore != 0xFFFFFFFFUL)
-      storage.setIndexStore(istore);
-    DBGSerial.printf("Set Storage Index drive to %u\n", istore);
+    if (MTP.addFilesystem(lfsram, "RAM")) {
+      MTP.useFilesystemForIndexList(lfsram);
+      DBGSerial.printf("Set Storage Index drive to %s\n", "RAM");
+    }
   }
-#else
-  storage.setIndexStore(0); // Default configuration
-  DBGSerial.printf("Storage Index drive to 0\n");
 
-#endif
   // configure MTP for SPI NOR Flash
   for (int ii = 0; ii < nfs_spi; ii++) {
     pinMode(lfs_cs[ii], OUTPUT);
@@ -188,7 +182,7 @@ void loop() {
       break;
     case 'r':
       DBGSerial.println("Reset");
-      MTP.send_DeviceResetEvent();
+      MTP.reset();
       break;
     case 'd':
       dumpLog();
@@ -242,7 +236,7 @@ void stopLogging() {
   // Closes the data file.
   dataFile.close();
   DBGSerial.printf("Records written = %d\n", record_count);
-  MTP.send_DeviceResetEvent();
+  MTP.reset();
 }
 
 void dumpLog() {
@@ -303,7 +297,7 @@ void eraseFiles() {
   }
   if (send_device_reset) {
     DBGSerial.println("\nFiles erased !");
-    MTP.send_DeviceResetEvent();
+    MTP.reset();
   } else {
     DBGSerial.println("\n failed !");
   }
@@ -316,7 +310,7 @@ void eraseFiles() {
   }
   if (pfsLIB.formatter(partVol)) {
     DBGSerial.println("\nFiles erased !");
-    MTP.send_DeviceResetEvent();
+    MTP.reset();
   }
 #endif
 }

@@ -243,7 +243,7 @@ public:
 	bool OpenFileByIndex(uint32_t i, uint32_t mode = FILE_READ);
 	void printRecord(int h, Record *p);
 	void printRecordIncludeName(int h, Record *p);
-	void dumpIndexList(void);
+	void dumpIndexList(Stream &stream = Serial);
 	void loop();
 	void printClearRecordReadWriteCounts();
 

@@ -105,12 +105,14 @@ void setup()
    uint32_t  disk_size = (0x60000000 + FLASH_SIZE) - 0x60100000;
    progdisk.begin(disk_size);   // minimum program disk size is 256k.
    MTP.addFilesystem(progdisk, "progdisk");
+   MTP.useFilesystemForIndexList(progdisk);
 #else
  // if you are using a T3.x a RAM disk can only be set up a disk using
  // BUFFER in RAM1, can also be used for Teensy 4.x and TMM
  char buf[ 120 * 1024 ]; // BUFFER in RAM1
    ramdisk.begin(buf, sizeof(buf));
    MTP.addFilesystem(ramdisk, "ramdisk");
+   MTP.useFilesystemForIndexList(ramdisk);
 #endif
   
   /*****  SPI Flash  ****/
@@ -140,7 +142,6 @@ void setup()
   // MTP.addFilesystem(sNand, "sNand");
 
   // sets the storage for the index file
-  MTP.useFileSystemIndexFileStore(0);
   Serial.println("\nSetup done");
 
 }

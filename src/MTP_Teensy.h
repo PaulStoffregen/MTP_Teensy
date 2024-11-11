@@ -69,31 +69,48 @@ public:
   int begin();
   void loop(void);
 
+  void reset() {
+    // TODO check if session open
+    // TODO clear storage info
+    // TODO other state to zero or initialize?
+    send_DeviceResetEvent();
+  }
+
   // Add a file system to the list of storages that will be seen by
   // the host computer.  Returns the index of the item within the list
   bool addFilesystem(FS &disk, const char *diskname) {
     return storage_.addFilesystem(disk, diskname);
   }
 
+
+  operator bool() { return usb_configuration && (sessionID_ != 0); }
+
+#if 1
   // returns the count of file systems that have been added to the storage list
-  inline uint32_t getFilesystemCount(void) { return storage_.getFSCount(); }
+  //inline uint32_t getFilesystemCount(void) { return storage_.getFSCount(); }
 
-  // return a pointer to the file system with the store index, that was returned by
-  // a previous call to addFilesystem.
-  inline FS* getFilesystemByIndex(uint32_t store) { return storage_.getStoreFS(store); }
+  FS* getFilesystemByIndex(uint32_t store) {
+    if (store >= storage_.getFSCount()) return nullptr;
+    return storage_.getStoreFS(store);
+  }
 
-  // Return the storage name that with the given store index.  tht is the index returned
-  // by previous call to addFilesystem.
-  inline const char *getFilesystemNameByIndex(uint32_t store) { return storage_.getStoreName(store); }
+  // Return the storage name that with the given store index
+  const char *getNameByIndex(uint32_t store) {
+    if (store >= storage_.getFSCount()) return nullptr;
+    return storage_.getStoreName(store);
+  }
+#endif
 
   // Set which of the file systems should be used to store our storage index.  This index is used 
   // to remember the mappings of object IDs to underlying file system object.  By default the system
   // uses the first storage tht was added.
-  inline bool useFileSystemIndexFileStore(uint32_t store = 0) { return storage_.setIndexStore(store); }
+  bool useFilesystemForIndexList(FS &disk);
+
+  //inline bool useFileSystemIndexFileStore(uint32_t store = 0) { return storage_.setIndexStore(store); }
 
   // maps a file system name (The diskname parameter in addFilesystem)
   // and returns the file system index.
-  inline uint32_t getFilesystemIndexFromName(const char *fsname) { return storage_.getStoreID(fsname); }
+  //inline uint32_t getFilesystemIndexFromName(const char *fsname) { return storage_.getStoreID(fsname); }
 
   // Reurns a pointer to stream object that is being used within MTP_Teensy
   // code to output debug and informational messages.  By default it
@@ -104,10 +121,14 @@ public:
   // messages.  By default the system uses the Serial object.
   static void PrintStream(Stream *stream) { printStream_ = stream; }
 
+  // Print info about internal data
+  void printFilesystemsInfo(Stream &stream = Serial);
+  void printIndexList(Stream &stream = Serial) { storage_.dumpIndexList(stream); }
+
   // Returns a pointer to the underlying MTPStorage object.  Most sketches
   // do not need this, but it does allow access to things such as
   // debug functions.
-  MTPStorage *storage() {return &storage_ ;}
+  //MTPStorage *storage() {return &storage_ ;}
 
   // Test to set file name to 232 as overhead of 24 in storage...
   enum {MAX_FILENAME_LEN=232, MAX_PATH_LEN=256};
@@ -233,10 +254,7 @@ private:
   int send_Event(uint16_t eventCode, uint32_t p1, uint32_t p2, uint32_t p3);
 #endif
 
-public:
-  void test(void);
-  operator bool() { return usb_configuration && (sessionID_ != 0); }
-
+private:
   void addSendObjectBuffer(
       char *pb,
       uint32_t cb); // you can extend the send object buffer by this buffer

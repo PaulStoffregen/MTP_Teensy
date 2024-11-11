@@ -140,7 +140,7 @@ void stopLogging() {
   // Closes the data file.
   dataFile.close();
   Serial.printf("Records written = %d\n", record_count);
-  MTP.send_DeviceResetEvent();
+  MTP.reset();
 }
 
 void dumpLog() {
@@ -186,7 +186,7 @@ void listFiles() {
 void eraseFiles() {
   myfs.quickFormat(); // performs a quick format of the created di
   Serial.println("\nFiles erased !");
-  MTP.send_DeviceResetEvent();
+  MTP.reset();
 }
 
 void printDirectory(FS &fs) {

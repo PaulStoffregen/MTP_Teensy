@@ -115,10 +115,10 @@ void setup() {
   if (lfsram.begin(LFSRAM_SIZE)) {
     DBGSerial.printf("Ram Drive of size: %u initialized\n", LFSRAM_SIZE);
     // FIXME: MTP.addFilesystem() no longer returns internal store numbers
-    uint32_t istore = MTP.addFilesystem(lfsram, "RAM");
-    if (istore != 0xFFFFFFFFUL)
-      MTP.useFileSystemIndexFileStore(istore);
-    DBGSerial.printf("Set Storage Index drive to %u\n", istore);
+    if (MTP.addFilesystem(lfsram, "RAM")) {
+      MTP.useFilesystemForIndexList(lfsram);
+    }
+    DBGSerial.printf("Set Storage Index drive to %s\n", "RAM");
   }
 
   DBGSerial.println("SD initialized.");
@@ -133,18 +133,10 @@ void loop() {
     int ch = DBGSerial.read();
     switch (command) {
       case '1':
-        {
-          // first dump list of storages:
-          uint32_t fsCount = MTP.getFilesystemCount();
-          DBGSerial.printf("\nDump Storage list(%u)\n", fsCount);
-          for (uint32_t ii = 0; ii < fsCount; ii++) {
-            DBGSerial.printf("store:%u storage:%x name:%s fs:%x\n", ii,
-                             MTP.Store2Storage(ii), MTP.getFilesystemNameByIndex(ii),
-                             (uint32_t)MTP.getFilesystemByIndex(ii));
-          }
-          DBGSerial.println("\nDump Index List");
-          MTP.storage()->dumpIndexList();
-        }
+        // first dump list of storages:
+        MTP.printFilesystemsInfo();
+        Serial.println("\nIndex List");
+        MTP.printIndexList();
         break;
       case '2':
         {
@@ -179,7 +171,7 @@ void loop() {
         break;
       case 'r':
         DBGSerial.println("Reset");
-        MTP.send_DeviceResetEvent();
+        MTP.reset();
         break;
       case 'd':
         dumpLog();
@@ -256,7 +248,7 @@ void stopLogging() {
   // Closes the data file.
   dataFile.close();
   DBGSerial.printf("Records written = %d\n", record_count);
-  MTP.send_DeviceResetEvent();
+  MTP.reset();
 }
 
 void dumpLog() {
@@ -310,7 +302,7 @@ void eraseFiles() {
 
   if (myfs[active_storage].sd.format(0, '.')) {
     DBGSerial.println("\nFiles erased !");
-    MTP.send_DeviceResetEvent();
+    MTP.reset();
   }
 }
 

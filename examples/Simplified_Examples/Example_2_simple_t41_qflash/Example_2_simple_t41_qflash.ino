@@ -55,7 +55,7 @@ void loop()
         break;
       case'r':
         Serial.println("Reset");
-        MTP.send_DeviceResetEvent();
+        MTP.reset();
         break;
 
       case '\r':

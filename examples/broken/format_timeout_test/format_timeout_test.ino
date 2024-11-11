@@ -83,7 +83,7 @@ void loop()
       break;
     case'r':
       DBGSerial.println("Reset");
-      MTP.send_DeviceResetEvent();
+      MTP.reset();
       break;
 
     case '\r':

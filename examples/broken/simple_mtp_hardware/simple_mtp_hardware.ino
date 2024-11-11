@@ -106,7 +106,7 @@ void loop() {
       break;
     case 'r':
       Serial.println("Send Device Reset Event");
-      MTP.send_DeviceResetEvent();
+      MTP.reset();
       break;
     case '\r':
     case '\n':
@@ -149,7 +149,7 @@ void eraseFiles() {
   Serial.println("\n*** Erase/Format started ***");
   myfs->format(0, '.', Serial);
   Serial.println("Completed, sending device reset event");
-  MTP.send_DeviceResetEvent();
+  MTP.reset();
 }
 
 void printDirectory(File dir, int numSpaces) {

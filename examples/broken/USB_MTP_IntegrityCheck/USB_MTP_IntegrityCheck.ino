@@ -140,25 +140,18 @@ void loop() {
     switch (command) {
     case '1': {
       // first dump list of storages:
-      uint32_t fsCount = MTP.getFilesystemCount();
-      Serial.printf("\nDump Storage list(%u)\n", fsCount);
-      for (uint32_t ii = 0; ii < fsCount; ii++) {
-        Serial.printf("store:%u storage:%x name:%s fs:%x\n", ii,
-                         MTP.Store2Storage(ii), MTP.getFilesystemNameByIndex(ii),
-                         (uint32_t)MTP.getFilesystemByIndex(ii));
-      }
-    }
-    //Serial.println("\nDump Index List");
-    //MTP.storage()->dumpIndexList();
-    break;
+      MTP.printFilesystemsInfo();
+      //Serial.println("\nIndex List");
+      //MTP.printIndexList();
+      break;
     case '2':
-      if (storage_index < MTP.getFilesystemCount()) {
-        Serial.printf("Storage Index %u Name: %s Selected\n", storage_index,
-        MTP.getFilesystemNameByIndex(storage_index));
-        myfs = MTP.getFilesystemByIndex(storage_index);
-        current_store = storage_index;
+      myfs = MTP.getFilesystemByIndex(storage_index);
+      current_store = storage_index;
+      if (myfs) {
+        DBGSerial.printf("Storage Index %u Name: %s Selected\n", storage_index,
+          MTP.getNameByIndex(storage_index));
       } else {
-        Serial.printf("Storage Index %u out of range\n", storage_index);
+        DBGSerial.printf("Storage Index %u out of range\n", storage_index);
       }
       break;
     case 'l':
@@ -190,7 +183,7 @@ void loop() {
 	    break;
     case 'r':
       Serial.println("Reset");
-      MTP.send_DeviceResetEvent();
+      MTP.reset();
       break;
     case 'R':
       Serial.print(" RESTART Teensy ...");
@@ -225,10 +218,10 @@ void storage_configure() {
   if (lfsram.begin(LFSRAM_SIZE)) {
     Serial.printf("Ram Drive of size: %u initialized\n", LFSRAM_SIZE);
     // FIXME: MTP.addFilesystem() no longer returns internal store numbers
-    uint32_t istore = MTP.addFilesystem(lfsram, "Prog");
-    if (istore != 0xFFFFFFFFUL)
-      MTP.useFileSystemIndexFileStore(istore);
-    Serial.printf("Set Storage Index drive to %u\n", istore);
+    if (MTP.addFilesystem(lfsram, "Prog")) {
+      MTP.useFilesystemForIndexList(lfsram);
+      Serial.printf("Set Storage Index drive to %s\n", "Prog");
+    }
     storage_added = true;
   }
 
@@ -290,7 +283,7 @@ void checkMSCChanges() {
       pmsfs_store_ids[i] = 0xFFFFFFFFUL;
     }
   }
-  if (send_device_reset) MTP.send_DeviceResetEvent();
+  if (send_device_reset) MTP.reset();
 }
 
 

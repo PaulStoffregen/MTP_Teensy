@@ -82,27 +82,20 @@ void loop()
 
     uint32_t fsCount;
     switch (command) {
-    case '1': {
+    case '1':
       // first dump list of storages:
-      uint32_t fsCount = MTP.getFilesystemCount();
-      DBGSerial.printf("\nDump Storage list(%u)\n", fsCount);
-      for (uint32_t ii = 0; ii < fsCount; ii++) {
-        DBGSerial.printf("store:%u storage:%x name:%s fs:%x\n", ii,
-                          MTP.Store2Storage(ii), MTP.getFilesystemNameByIndex(ii),
-                          (uint32_t)MTP.getFilesystemByIndex(ii));
-      }
-    } break;
+      MTP.printFilesystemsInfo();
+      break;
     case '2': {
-      if (storage_index < MTP.getFilesystemCount()) {
+      myfs = MTP.getFilesystemByIndex(storage_index);
+      current_store = storage_index;
+      if (myfs) {
         DBGSerial.printf("Storage Index %u Name: %s Selected\n", storage_index,
-        MTP.getFilesystemNameByIndex(storage_index));
-        myfs = MTP.getFilesystemByIndex(storage_index);
-        current_store = storage_index;
+          MTP.getNameByIndex(storage_index));
       } else {
         DBGSerial.printf("Storage Index %u out of range\n", storage_index);
       }
-    } break;
-
+      break;
     case 'l': listFiles(); break;
     case 's':
       DBGSerial.println("\nLogging Data!!!");
@@ -115,7 +108,7 @@ void loop()
     case 'x': stopLogging(); break;
     case'r':
       DBGSerial.println("Reset");
-      MTP.send_DeviceResetEvent();
+      MTP.reset();
       break;
     case 'd': dumpLog(); break;
     case '\r':
@@ -167,7 +160,7 @@ void stopLogging()
   // Closes the data file.
   dataFile.close();
   DBGSerial.printf("Records written = %d\n", record_count);
-  MTP.send_DeviceResetEvent();
+  MTP.reset();
 }
 
 

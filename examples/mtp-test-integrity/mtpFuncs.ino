@@ -28,10 +28,10 @@ void storage_configure()
 #endif
 if (lfsram.begin(LFSRAM_SIZE)) {
     DBGSerial.printf("Ram Drive of size: %u initialized\n", LFSRAM_SIZE);
-    uint32_t istore = MTP.addFilesystem(lfsram, "RAMindex");
-    if (istore != 0xFFFFFFFFUL)
-      MTP.useFileSystemIndexStore(istore);
-    DBGSerial.printf("Set Storage Index drive to %u\n", istore);
+    if (MTP.addFilesystem(lfsram, "RAMindex")) {
+      MTP.useFilesystemForIndexList(lfsram);
+      DBGSerial.printf("Set Storage Index drive to %s\n", "RAMindex");
+    }
   }
 #endif
 
@@ -223,7 +223,7 @@ void stopLogging()
   // Closes the data file.
   dataFile.close();
   DBGSerial.printf("Records written = %d\n", record_count);
-  MTP.send_DeviceResetEvent();
+  MTP.reset();
 }
 
 
@@ -285,7 +285,7 @@ void eraseFiles()
   DBGSerial.println("\n*** Erase/Format started ***");
   myfs->format(1, '.', DBGSerial);
   Serial.println("Completed, sending device reset event");
-  MTP.send_DeviceResetEvent();
+  MTP.reset();
 }
 
 void format3()
@@ -294,7 +294,7 @@ void format3()
   DBGSerial.println("\n*** Erase/Format Unused started ***");
   myfs->format(2,'.', DBGSerial );
   Serial.println("Completed, sending device reset event");
-  MTP.send_DeviceResetEvent();
+  MTP.reset();
 }
 
 void printDirectory(FS *pfs) {

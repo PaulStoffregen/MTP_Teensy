@@ -134,32 +134,22 @@ void loop() {
       stopLogging();
       break;
     case '1': 
-      {
-        // first dump list of storages:
-        uint32_t fsCount = MTP.getFilesystemCount();
-        Serial.printf("\nDump Storage list(%u)\n", fsCount);
-        for (uint32_t ii = 0; ii < fsCount; ii++) {
-          Serial.printf("store:%u storage:%x name:%s fs:%x\n", ii,
-                        MTP.Store2Storage(ii), MTP.getFilesystemNameByIndex(ii),
-                        (uint32_t)MTP.getFilesystemNameByIndex(ii));
-        }
-        Serial.println("\nDump Index List");
-        MTP.storage()->dumpIndexList();
-      } 
+      // first dump list of storages:
+      MTP.printFilesystemsInfo();
+      //Serial.println("\nIndex List");
+      //MTP.printIndexList();
       break;
     case '2':
-      {
-        uint32_t drive_index = CommandLineReadNextNumber(ch, 0);
-        Serial.printf("Drive # %d Selected\n", drive_index);
-        mscDisk = MTP.getFilesystemByIndex(drive_index);
-     }
+      uint32_t drive_index = CommandLineReadNextNumber(ch, 0);
+      Serial.printf("Drive # %d Selected\n", drive_index);
+      mscDisk = MTP.getFilesystemByIndex(drive_index);
       break;
     case 'd':
       dumpLog();
       break;
     case 'r':
       Serial.println("Send Device Reset Event");
-      MTP.send_DeviceResetEvent();
+      MTP.reset();
       break;
     case 'w':
       test_write_file(ch);
@@ -208,7 +198,7 @@ void stopLogging() {
   // Closes the data file.
   dataFile.close();
   Serial.printf("Records written = %d\n", record_count);
-  MTP.send_DeviceResetEvent();
+  MTP.reset();
 }
 
 void dumpLog() {
@@ -267,7 +257,7 @@ void eraseFiles() {
     }
     if (pfsLIB.formatter(partVol)) {
       Serial.println("\nFiles erased !");
-      MTP.send_DeviceResetEvent();
+      MTP.reset();
     }
     */
 }

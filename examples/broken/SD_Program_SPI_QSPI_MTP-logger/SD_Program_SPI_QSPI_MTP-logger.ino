@@ -312,7 +312,7 @@ void loop() {
       break;
     case 'r':
       DBGSerial.println("Reset");
-      MTP.send_DeviceResetEvent();
+      MTP.reset();
       break;
     case 'd':
       dumpLog();
@@ -386,7 +386,7 @@ void checkSDMediaChanges() {
       sdSDIO.sdfs.end();
       DBGSerial.printf("###SD Media Removed(%d)\n", index_sdio_storage);
     }
-    MTP.send_DeviceResetEvent();
+    MTP.reset();
   }
   #endif
   #ifdef ENABLE_SPI_SD_MEDIA_PRESENT
@@ -400,7 +400,7 @@ void checkSDMediaChanges() {
       DBGSerial.printf("###SD SPI Media Removed(%d)\n", index_sdspi_storage);
       sdSPI.sdfs.end();
     } 
-    MTP.send_DeviceResetEvent();
+    MTP.reset();
   }
 #endif
 }
@@ -437,7 +437,7 @@ void stopLogging() {
   // Closes the data file.
   dataFile.close();
   DBGSerial.printf("Records written = %d\n", record_count);
-  MTP.send_DeviceResetEvent();
+  MTP.reset();
 }
 
 void dumpLog() {
@@ -495,7 +495,7 @@ void eraseFiles() {
   DBGSerial.println("\n*** Erase/Format started ***");
   myfs->format(0, '.', DBGSerial);
   Serial.println("Completed, sending device reset event");
-  MTP.send_DeviceResetEvent();
+  MTP.reset();
 }
 
 void lowLevelFormat() {
@@ -508,7 +508,7 @@ void lowLevelFormat() {
   Serial.println("started ***");
   myfs->format(1, '.', DBGSerial);  // try first by using the hack of 1...
   Serial.println("Completed, sending device reset event");
-  MTP.send_DeviceResetEvent();
+  MTP.reset();
 }
 
 void printDirectory(FS *pfs) {

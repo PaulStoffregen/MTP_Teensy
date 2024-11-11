@@ -1299,7 +1299,7 @@ bool MTPStorage::rename(uint32_t handle, const char *name)
 	return false;
 }
 
-void MTPStorage::dumpIndexList(void)
+void MTPStorage::dumpIndexList(Stream &stream)
 {
 	if (index_entries_ == 0) return;
 	uint32_t fsCount = getFSCount();
@@ -1312,17 +1312,17 @@ void MTPStorage::dumpIndexList(void)
 				if (skip_start_index == 0) skip_start_index = ii;
 			} else {
 				if (skip_start_index) {
-					MTP_class::PrintStream()->printf("< Skipped %u - %u >\n", skip_start_index, ii-1);
+					stream.printf("< Skipped %u - %u >\n", skip_start_index, ii-1);
 					skip_start_index = 0;
 				}
-				MTP_class::PrintStream()->printf("%d: %d %d %u %d %d %lld %u %u %s\n",
-			                                 ii, p.store, p.isdir, p.scanned, p.parent, p.sibling, p.child,
-			                                 p.dtCreate, p.dtModify, p.name);
+				stream.printf("%d: %d %d %u %d %d %lld %u %u %s\n",
+			                       ii, p.store, p.isdir, p.scanned, p.parent, p.sibling, p.child,
+			                       p.dtCreate, p.dtModify, p.name);
 			}
 		}
 	}
 	if (skip_start_index) {  // not likely to happen but
-		MTP_class::PrintStream()->printf("< Skipped %u - %u >\n", skip_start_index, index_entries_-1);
+		stream.printf("< Skipped %u - %u >\n", skip_start_index, index_entries_-1);
 	}
 }
 

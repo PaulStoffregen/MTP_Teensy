@@ -124,8 +124,7 @@ void setup() {
 #endif
   if (lfsram.begin(LFSRAM_SIZE)) {
     Serial.printf("Ram Drive of size: %u initialized\n", LFSRAM_SIZE);
-    uint32_t istore = MTP.addFilesystem(lfsram, "RAM");
-    Serial.printf("Set Storage Index drive to %u\n", istore);
+    MTP.addFilesystem(lfsram, "RAM");
   }
   SelectedFS = &lfsram;  // so we don't start of with NULL pointer
 
@@ -189,16 +188,10 @@ void loop() {
       break;
     case '1': {
       // first dump list of storages:
-      uint32_t fsCount = MTP.getFilesystemCount();
-      Serial.printf("\nDump Storage list(%u)\n", fsCount);
-      for (uint32_t ii = 0; ii < fsCount; ii++) {
-        Serial.printf("store:%u storage:%x name:%s fs:%x\n", ii,
-                      MTP.Store2Storage(ii), MTP.getFilesystemNameByIndex(ii),
-                      (uint32_t)MTP.getFilesystemNameByIndex(ii));
-      }
-      Serial.println("\nDump Index List");
-      MTP.storage()->dumpIndexList();
-    } break;
+      MTP.printFilesystemsInfo();
+      Serial.println("\nIndex List");
+      MTP.printIndexList();
+      break;
     case '2':
       Serial.printf("Drive # %d Selected\n", drive_index);
       SelectedFS = MTP.getFilesystemByIndex(drive_index);
@@ -206,7 +199,7 @@ void loop() {
       break;
     case 'r':
       Serial.println("Send Device Reset Event");
-      MTP.send_DeviceResetEvent();
+      MTP.reset();
       break;
     case '\r':
     case '\n':
@@ -285,7 +278,7 @@ void checkUSBDrives() {
       filesystem_list_store_ids[i] = 0xFFFFFFFFUL;
     }
   }
-  if (send_device_reset) MTP.send_DeviceResetEvent();
+  if (send_device_reset) MTP.reset();
 }
 
 
@@ -331,7 +324,7 @@ void eraseFiles() {
     }
     if (pfsLIB.formatter(partVol)) {
       Serial.println("\nFiles erased !");
-      MTP.send_DeviceResetEvent();
+      MTP.reset();
     }
     */
 }

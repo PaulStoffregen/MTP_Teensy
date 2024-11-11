@@ -2133,6 +2133,32 @@ bool MTP_class::send_removeObjectEvent(uint32_t store, const char *pathname) {
 //***************************************************************************
 
 
+void MTP_class::printFilesystemsInfo(Stream &stream) {
+  unsigned int count = storage_.getFSCount();
+  stream.println();
+  stream.print("Storage List, ");
+  stream.print(count);
+  stream.println(" Filesystems");
+  for (unsigned int i=0; i < count; i++) {
+    FS *fs = storage_.getStoreFS(i);
+    if (fs != nullptr) {
+      stream.print("  store:");
+      stream.print(i);
+      stream.print(" storage:");
+      stream.print(Store2Storage(i), HEX);
+      stream.print(" present:");
+      stream.print(storage_.isMediaPresent(i) ? "Yes" : "No ");
+      stream.print(" fs:");
+      stream.print((uint32_t)fs, HEX);
+      stream.print(" name:\"");
+      stream.print(storage_.get_FSName(i));
+      stream.print("\" fsname:\"");
+      stream.print("TODO"); // TODO: print fs->name() ... requires updated core lib
+      stream.println("\"");
+    }
+  }
+}
+
 void MTP_class::printContainer(const void *container, const char *msg) {
   const struct MTPContainer *c = (const struct MTPContainer *)container;
 #ifndef MTP_VERBOSE_PRINT_CONTAINER

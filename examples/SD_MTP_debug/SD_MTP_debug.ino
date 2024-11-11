@@ -100,8 +100,6 @@ void setup()
 #endif
 
 
-
-  //MTP.useFileSystemIndexFileStore(MTPStorage::INDEX_STORE_MEM_FILE);
   Serial.println("\nSetup done");
 }
 
@@ -159,21 +157,13 @@ void loop() {
       break;
     case 'r':
       Serial.println("Reset");
-      MTP.send_DeviceResetEvent();
+      MTP.reset();
       break;
     case 'd':
       // first dump list of storages:
-      {
-        uint32_t fsCount = MTP.getFilesystemCount();
-        Serial.printf("\nDump Storage list(%u)\n", fsCount);
-        for (uint32_t ii = 0; ii < fsCount; ii++) {
-          Serial.printf("store:%u storage:%x name:%s fs:%x\n", ii,
-                        MTP.Store2Storage(ii), MTP.getFilesystemNameByIndex(ii),
-                        (uint32_t)MTP.getFilesystemNameByIndex(ii));
-        }
-        Serial.println("\nDump Index List");
-        MTP.storage()->dumpIndexList();
-      }
+      MTP.printFilesystemsInfo();
+      Serial.println("\nDump Index List");
+      MTP.printIndexList();
       break;
     default:  
       Serial.println("Menu");
