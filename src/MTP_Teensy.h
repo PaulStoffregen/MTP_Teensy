@@ -87,16 +87,16 @@ public:
 
 #if 1
   // returns the count of file systems that have been added to the storage list
-  //inline uint32_t getFilesystemCount(void) { return storage_.getFSCount(); }
+  //inline uint32_t getFilesystemCount(void) { return storage_.get_FSCount(); }
 
   FS* getFilesystemByIndex(uint32_t store) {
-    if (store >= storage_.getFSCount()) return nullptr;
+    if (store >= storage_.get_FSCount()) return nullptr;
     return storage_.getStoreFS(store);
   }
 
   // Return the storage name that with the given store index
   const char *getNameByIndex(uint32_t store) {
-    if (store >= storage_.getFSCount()) return nullptr;
+    if (store >= storage_.get_FSCount()) return nullptr;
     return storage_.getStoreName(store);
   }
 #endif

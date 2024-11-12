@@ -145,12 +145,7 @@ public:
   	uint32_t get_FSCount(void) { return fsCount; }
 
 	// Return count of files systems in storage list
-	const char *get_FSName(uint32_t store) { return name[store];
-	}
-
-	// Older version, not sure if we still need.
-	uint32_t getFSCount(void) { return fsCount;	}
-	const char *getFSName(uint32_t store) {	return name[store];	}
+	const char *get_FSName(uint32_t store) { return name[store]; }
 
 	File open(uint32_t store, const char *filename, uint32_t mode) {
 		if (fs[store] == nullptr) return File();

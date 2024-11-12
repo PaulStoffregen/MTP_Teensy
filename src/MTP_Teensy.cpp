@@ -933,40 +933,25 @@ uint32_t MTP_class::GetStorageIDs(struct MTPContainer &cmd) {
   uint32_t num = storage_.get_FSCount();
   // first count the number of filesystems
   uint32_t num_valid = 0;
-  for (uint32_t i = 0; i < num; i++) {
-    const char *name = storage_.get_FSName(i);
-#if 0
-    if (name) num_valid++;
-#else
-    if (name && storage_.isMediaPresent(i)) num_valid++;
-#endif
+  for (uint32_t store = 0; store < num; store++) {
+    FS *fs = storage_.getStoreFS(store);
+    if (fs && storage_.isMediaPresent(store)) num_valid++;
   }
   writeDataPhaseHeader(cmd, 4 + num_valid * 4);
   write32(num_valid); // number of storages (disks)
-  for (uint32_t i = 0; i < num; i++) {
-    const char *name = storage_.get_FSName(i);
-#if 0
-    if (name) {
-      uint32_t StorageID = Store2Storage(i);
-      if (!storage_.isMediaPresent(i)) {
-        // 0x0000 in low 16 bits indicates removalable media not present, page 213
-        StorageID &= 0xFFFF0000;
-      }
-      printf("\t%u(%s) StorageID=%08X\n", i, name, StorageID);
-      write32(StorageID); // storage id
-    }
-#else
-    if (name && storage_.isMediaPresent(i)) {
+  for (uint32_t store = 0; store < num; store++) {
+    FS *fs = storage_.getStoreFS(store);
+    if (fs && storage_.isMediaPresent(store)) {
       // page 213 says "Removable storages with no inserted media shall be returned
       // in the dataset returned by this operation as well, though they would contain
       // a value of 0x0000 in the lower 16 bits indicating that they are not present"
       // However, Linux seems to get confused by these StorageIDs.  Because Windows
       // just hides them anyway, we'll not send these StorageID for removed media.
-      uint32_t StorageID = Store2Storage(i);
-      printf("\t%u(%s) StorageID=%08X\n", i, name, StorageID);
+      uint32_t StorageID = Store2Storage(store);
+      printf("\t%u(%s %s) StorageID=%08X\n", store, // FIXME: printing maybe ISR unsafe? // FIXME: printing maybe ISR unsafe?
+        storage_.get_FSName(store), fs->name(), StorageID);
       write32(StorageID); // storage id
     }
-#endif
   }
   write_finish();
   storage_ids_sent_ = true;
@@ -980,10 +965,9 @@ uint32_t MTP_class::GetStorageIDs(struct MTPContainer &cmd) {
 uint32_t MTP_class::GetStorageInfo(struct MTPContainer &cmd, bool mediaAccessAllowed) {
   uint32_t storage = cmd.params[0];
   uint32_t store = Storage2Store(storage);
-  const char *name = storage_.get_FSName(store);
-  // const char *volumeID = storage_.get_volumeID(store);
-  if (name == nullptr) {
-    printf("MTP_class::GetStorageInfo %u is not valid (Nullptr name)\n", store);
+  FS *fs = storage_.getStoreFS(store);
+  if (fs == nullptr) {
+    printf("MTP_class::GetStorageInfo %u is not valid (FS nullptr)\n", store);
     return MTP_RESPONSE_STORE_NOT_AVAILABLE;
   }
   if (!storage_.isMediaPresent(store)) {
@@ -991,9 +975,14 @@ uint32_t MTP_class::GetStorageInfo(struct MTPContainer &cmd, bool mediaAccessAll
     // TODO: is this correct response for removable media not present?
     return MTP_RESPONSE_STORE_NOT_AVAILABLE;
   }
-  static const char _volumeID[] = "";
-
-  uint32_t size = 2 + 2 + 2 + 8 + 8 + 4 + writestringlen(name) + writestringlen(_volumeID);
+  const char *name = storage_.get_FSName(store);
+  const char *volname = fs->name(); // assume no media access if previously called
+  if (volname) {
+    name = volname;
+  } else if (!name) {
+    name = "Untitled";
+  }
+  uint32_t size = 2 + 2 + 2 + 8 + 8 + 4 + writestringlen(name) + writestringlen("");
   writeDataPhaseHeader(cmd, size);
   // StorageInfo, MTP 1.1 spec, page 46
   write16(storage_.readonly(store) ? 0x0001
@@ -1011,7 +1000,7 @@ uint32_t MTP_class::GetStorageInfo(struct MTPContainer &cmd, bool mediaAccessAll
   //printf("GetStorageInfo dt:%u tot:%lu, used: %lu\n", (uint32_t)em, ntotal, nused);
   write32(0xFFFFFFFFUL); // free space (objects)
   writestring(name); // storage descriptor
-  writestring(_volumeID); // volume identifier
+  writestring(""); // volume identifier (neither Windows nor Linux seem to use this)
   write_finish();
   printf("\t%x name:%s\n", storage, name);
   return MTP_RESPONSE_OK;
@@ -2134,7 +2123,7 @@ bool MTP_class::send_removeObjectEvent(uint32_t store, const char *pathname) {
 
 
 void MTP_class::printFilesystemsInfo(Stream &stream) {
-  unsigned int count = storage_.getFSCount();
+  unsigned int count = storage_.get_FSCount();
   stream.println();
   stream.print("Storage List, ");
   stream.print(count);
@@ -2153,7 +2142,9 @@ void MTP_class::printFilesystemsInfo(Stream &stream) {
       stream.print(" name:\"");
       stream.print(storage_.get_FSName(i));
       stream.print("\" fsname:\"");
-      stream.print("TODO"); // TODO: print fs->name() ... requires updated core lib
+      const char *volname = fs->name(); // requires updated core lib
+      if (!volname) volname = "Untitled";
+      stream.print(volname);
       stream.println("\"");
     }
   }

@@ -858,7 +858,7 @@ void MTPStorage::GenerateIndex(uint32_t store)
 		remove(index_file_storage_, indexFile);
 	}
 	mtp_lock_storage(false);
-	//num_storage = getFSCount();
+	//num_storage = get_FSCount();
 	index_entries_ = 0;
 	Record r;
 	// BugBug - will generate index for max file systems count...
@@ -1302,7 +1302,7 @@ bool MTPStorage::rename(uint32_t handle, const char *name)
 void MTPStorage::dumpIndexList(Stream &stream)
 {
 	if (index_entries_ == 0) return;
-	uint32_t fsCount = getFSCount();
+	uint32_t fsCount = get_FSCount();
 	uint32_t skip_start_index = 0;
 	for (uint32_t ii = 0; ii < index_entries_; ii++) {
 		if ((ii < fsCount) || (ii >= MTPD_MAX_FILESYSTEMS)) {
@@ -1730,7 +1730,9 @@ bool MTPStorage::addFilesystem(FS &disk, const char *diskname)
 	store_scanned_[store] = false;
 	totalSize(store); // update totalSize & usedSize for interrupt-safe GetStorageInfo
 	usedSize(store);
-	DBGPrintf("addFilesystem: %d %s %x\n", fsCount, diskname, (uint32_t)fs[store]);
+	const char *volname = fs[store]->name();
+        if (!volname) volname = "Untitled";
+	DBGPrintf("addFilesystem: %d %s %x %s\n", fsCount, diskname, (uint32_t)fs[store], volname);
 	media_present[store] = disk.mediaPresent();
 	if (media_present[store]) {
 		MTP.send_StoreAddedEvent(store);
@@ -1869,14 +1871,14 @@ uint32_t MTPStorage::MapFileNameToIndex(uint32_t storage, const char *pathname,
 bool MTPStorage::setIndexStore(uint32_t storage) {
 	Serial.printf(" MTPStorage::setIndexStore: %d\n", (int)storage); 	// hard coded, dont care just give me the file
 	#if MTP_RECORD_BLOCKS
-	if ((storage != INDEX_STORE_MEM_FILE) && (storage >= getFSCount()))
+	if ((storage != INDEX_STORE_MEM_FILE) && (storage >= get_FSCount()))
 		return false; // out of range
 	#else
-	if (storage >= getFSCount())
+	if (storage >= get_FSCount())
 		return false; // out of range
 	#endif	
 	CloseIndex();
-  index_file_storage_ = storage;
+	index_file_storage_ = storage;
 	user_index_file_ = false;
 	return true;
 }
@@ -1899,7 +1901,10 @@ void MTPStorage::loop() {
     bool media_present_now = fs[store]->mediaPresent();
     bool media_present_before = media_present[store];
     if (media_present_now && !media_present_before) {
-      MTP_class::PrintStream()->printf("\nMedia inserted \"%s\"(%u)\n", get_FSName(store), store);
+      const char *volname = fs[store]->name();
+      if (!volname) volname = "Untitled";
+      MTP_class::PrintStream()->printf("\nMedia inserted \"%s\"(%u) \"%s\"\n",
+	get_FSName(store), store, volname);
       totalSize(store); // update totalSize & usedSize for interrupt-safe GetStorageInfo
       usedSize(store);
       MTP.send_StoreAddedEvent(store); // page 275
