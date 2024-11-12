@@ -104,7 +104,15 @@ public:
   // Set which of the file systems should be used to store our storage index.  This index is used 
   // to remember the mappings of object IDs to underlying file system object.  By default the system
   // uses the first storage tht was added.
-  bool useFilesystemForIndexList(FS &disk);
+  bool useFilesystemForIndexList(FS &disk) {
+    unsigned int count = storage_.get_FSCount();
+    for (unsigned int store=0; store < count; store++) {
+      if (storage_.getStoreFS(store) == &disk) {
+        return storage_.setIndexStore(store);
+      }
+    }
+    return false;
+  }
 
   //inline bool useFileSystemIndexFileStore(uint32_t store = 0) { return storage_.setIndexStore(store); }
 
