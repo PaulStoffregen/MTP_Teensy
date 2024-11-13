@@ -1,5 +1,3 @@
-#include "Arduino.h"
-
 #define NDAT 128L
 #define NCH_ACQ 1
 #define NCH_I2S 4
@@ -15,18 +13,14 @@
 // PIN  13 RXD0
 // PIN  38 RXD1
 
-#include "MTP_Teensy.h"
-#include "SD.h"
-
-#if defined(__IMXRT1062__)
-#include "usb_mtp.h"
-#endif
+#include <MTP_Teensy.h>
 
 #define USE_SD 1
 #define USE_LITTLEFS 1 // set to zero if no LtttleFS is existing or to be used
 
 /****  Start device specific change area  ****/
 #if USE_SD == 1
+#include <SD.h>
 // edit SPI to reflect your configuration (following is for T4.1)
 #define SD_MOSI 11
 #define SD_MISO 12
@@ -126,7 +120,6 @@ void setup() {
 
   MTP.begin();
 
-  usb_mtp_configure();
   storage_configure();
 
   acq_init(93750); // is fixed for this example, to be modified below

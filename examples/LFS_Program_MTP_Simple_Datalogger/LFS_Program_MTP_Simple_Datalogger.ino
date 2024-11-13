@@ -16,9 +16,8 @@ File dataFile; // Specifes that dataFile is of File type
 
 int record_count = 0;
 bool write_data = false;
-uint32_t diskSize;
 
-static const uint32_t file_system_size = 1024 * 1024 * 1;
+static const uint32_t file_system_size = 900 * 1024;
 
 void setup() {
 
@@ -30,24 +29,6 @@ void setup() {
   Serial.println("\n" __FILE__ " " __DATE__ " " __TIME__);
 
   Serial.print("Initializing LittleFS ...");
-
-// see if the Flash is present and can be initialized:
-// If using a Locked Teensy 4.0 there is a 960K block limit.
-#if ARDUINO_TEENSY40
-  if ((IOMUXC_GPR_GPR11 & 0x100) == 0x100) {
-    // if security is active max disk size is 960x1024
-    Serial.println("SECURITY ENABLED");
-    if (file_system_size > 960 * 1024) {
-      diskSize = 960 * 1024;
-      Serial.printf("PROGRAM disk defaulted to %u bytes\n", diskSize);
-    } else {
-      diskSize = file_system_size;
-      Serial.printf("PROGRAM disk using %u bytes\n", diskSize);
-    }
-  }
-#else
-  diskSize = file_system_size;
-#endif
 
   // checks that the LittFS program has started with the disk size specified
   if (!myfs.begin(file_system_size)) {
@@ -66,6 +47,12 @@ void setup() {
 }
 
 void loop() {
+  MTP.loop();
+
+  if (write_data) {
+    logData();
+  }
+
   if (Serial.available()) {
     char rr;
     rr = Serial.read();
@@ -101,11 +88,7 @@ void loop() {
     }
     while (Serial.read() != -1)
       ; // remove rest of characters.
-  } else
-    MTP.loop();
-
-  if (write_data)
-    logData();
+  }
 }
 
 void logData() {

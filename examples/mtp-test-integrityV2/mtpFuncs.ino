@@ -1,205 +1,3 @@
-void storage_configure()
-{
-  const char *pn;
-  DateTimeFields date;
-  breakTime(Teensy3Clock.get(), date);
-  const char *monthname[12]={
-    "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
-  DBGSerial.printf("Date: %u %s %u %u:%u:%u\n",
-    date.mday, monthname[date.mon], date.year+1900, date.hour, date.min, date.sec);
-
-#if useProIdx == 1
-  // Lets add the Program memory version:
-  // checks that the LittFS program has started with the disk size specified
-  if (lfsProg.begin(file_system_size)) {
-    MTP.addFilesystem(lfsProg, "PgmIndx");
-  } else {
-    Serial.println("Error starting Program Flash storage");
-  }
-#endif
-
-#if useMemFile == 1
-  // Lets add the Program memory version:
-  // checks that the LittFS program has started with the disk size specified
-  //MTP.useFileSystemIndexFileStore(MTPStorage::INDEX_STORE_MEM_FILE); // TODO...
-#endif
-
-// lets initialize a RAM drive.
-#if useExMem == 1
-#if defined ARDUINO_TEENSY41
-  if (external_psram_size)
-    LFSRAM_SIZE = 4 * 1024 * 1024;
-#endif
-if (lfsram.begin(LFSRAM_SIZE)) {
-    DBGSerial.printf("Ram Drive of size: %u initialized\n", LFSRAM_SIZE);
-    if (MTP.addFilesystem(lfsram, "RAMindex")) {
-      MTP.useFilesystemForIndexList(lfsram);
-      DBGSerial.printf("Set Storage Index drive to %s\n", "RAMindex");
-    }
-  }
-#endif
-
-//defaults to SDIO when useExMem or useProMem = 0
-  #if USE_SD==1
-    #if defined SD_SCK
-      SPI.setMOSI(SD_MOSI);
-      SPI.setMISO(SD_MISO);
-      SPI.setSCK(SD_SCK);
-    #endif
-
-    for (uint8_t i = 0; i < nsd; i++) {
-      if(cs[i] != BUILTIN_SDCARD) {
-        pinMode(cs[i], OUTPUT);
-        digitalWrite(cs[i], HIGH);
-      }
-/*
-      sd_media_present_prev[i] = sdx[i].begin(cs[i]);
-      if (cdPin[i] != 0xff) sdx[i].setMediaDetectPin(cdPin[i]);
-        MTP.addFilesystem(sdx[i], sd_str[i]);
-      if (sd_media_present_prev[i]) {
-        uint64_t totalSize = sdx[i].totalSize();
-        uint64_t usedSize  = sdx[i].usedSize();
-        Serial.printf("SD Storage %d %d %s ",i,cs[i],sd_str[i]); 
-        Serial.print(totalSize); Serial.print(" "); Serial.println(usedSize);
-      }
-    }
-    elapsed_millis_since_last_sd_check = 0;
-*/
-	  if (sdx[i].begin(cs[i])) {
-		Serial.println("Added SD card using built in SDIO, or given SPI CS");
-	  } else {
-		Serial.println("No SD Card SDIO or SPI CS");
-	  }
-	  MTP.addFilesystem(sdx[i], sd_str[i]);
-	  uint64_t totalSize = sdx[i].totalSize();
-	  uint64_t usedSize  = sdx[i].usedSize();
-	  Serial.printf("SD Storage %d %d %s ",i,cs[i],sd_str[i]); 
-	  Serial.print(totalSize); Serial.print(" "); Serial.println(usedSize);
-	}
-	  
-	Serial.println("\nSD Setup done");
-#endif
-
-#if USE_LFS_RAM==1
-  for (int ii=0; ii<nfs_ram;ii++) {
-    if (!ramfs[ii].begin(lfs_ram_size[ii])) {
-      DBGSerial.printf("Ram Storage %d %s failed or missing",ii,lfs_ram_str[ii]);
-      DBGSerial.println();
-    } else {
-      pn = ramfs[ii].getMediaName();
-      MTP.addFilesystem(ramfs[ii], lfs_ram_str[ii]);
-      uint64_t totalSize = ramfs[ii].totalSize();
-      uint64_t usedSize  = ramfs[ii].usedSize();
-      DBGSerial.printf("RAM Storage %d (%s) %s %llu %llu\n", ii, pn, lfs_ram_str[ii],totalSize, usedSize);
-    }
-  }
-#endif
-
-#if USE_LFS_PROGM==1
-  for (int ii=0; ii<nfs_progm;ii++) {
-    if (!progmfs[ii].begin(lfs_progm_size[ii])) {
-      DBGSerial.printf("Program Storage %d %s failed or missing",ii,lfs_progm_str[ii]);
-      DBGSerial.println();
-    } else {
-      pn = progmfs[ii].getMediaName();
-      MTP.addFilesystem(progmfs[ii], lfs_progm_str[ii]);
-      uint64_t totalSize = progmfs[ii].totalSize();
-      uint64_t usedSize  = progmfs[ii].usedSize();
-      DBGSerial.printf("Program Storage %d (%s) %s %llu %llu\n", ii, pn, lfs_progm_str[ii],
-        totalSize, usedSize);
-    }
-  }
-#endif
-
-#if USE_LFS_QSPI==1
-  for(int ii=0; ii<nfs_qspi;ii++) {
-    if(!qspifs[ii].begin()) {
-      DBGSerial.printf("QSPI Storage %d %s failed or missing",ii,lfs_qspi_str[ii]);
-      DBGSerial.println();
-    } else {
-      pn = qspifs[ii].getMediaName();
-      MTP.addFilesystem(qspifs[ii], lfs_qspi_str[ii]);
-      uint64_t totalSize = qspifs[ii].totalSize();
-      uint64_t usedSize  = qspifs[ii].usedSize();
-      DBGSerial.printf("QSPI Storage %d (%s) %s %llu %llu\n", ii, pn, lfs_qspi_str[ii], totalSize, usedSize);
-    }
-  }
-#endif
-
-#if USE_LFS_SPI==1
-  for (int ii=0; ii<nfs_spi;ii++) {
-    if (USE_SW_PU == 1) {
-      pinMode(lfs_cs[ii],OUTPUT);
-      digitalWriteFast(lfs_cs[ii],HIGH);
-    }
-    if (!spifs[ii].begin(lfs_cs[ii], SPI)) {
-      DBGSerial.printf("SPIFlash Storage %d %d %s failed or missing\n",ii,lfs_cs[ii],lfs_spi_str[ii]);
-    } else {
-      pn = spifs[ii].getMediaName();
-      MTP.addFilesystem(spifs[ii], lfs_spi_str[ii]);
-      uint64_t totalSize = spifs[ii].totalSize();
-      uint64_t usedSize  = spifs[ii].usedSize();
-      DBGSerial.printf("SPIFlash Storage %d (%s) %d %s %llu %llu\n", ii, pn, lfs_cs[ii], lfs_spi_str[ii],
-        totalSize, usedSize);
-    }
-  }
-#endif
-#if USE_LFS_NAND == 1
-  for(int ii=0; ii<nspi_nsd;ii++) {
-    if (USE_SW_PU == 1) {
-      pinMode(nspi_cs[ii],OUTPUT);
-      digitalWriteFast(nspi_cs[ii],HIGH);
-    }
-    if(!nspifs[ii].begin(nspi_cs[ii], SPI)) {
-      DBGSerial.printf("SPIFlash NAND Storage %d %d %s failed or missing",ii,nspi_cs[ii],nspi_str[ii]);
-      DBGSerial.println();
-    } else {
-      pn = nspifs[ii].getMediaName();
-      MTP.addFilesystem(nspifs[ii], nspi_str[ii]);
-      uint64_t totalSize = nspifs[ii].totalSize();
-      uint64_t usedSize  = nspifs[ii].usedSize();
-      DBGSerial.printf("Storage %d (%s) %d %s %llu %llu\n", ii, pn, nspi_cs[ii], nspi_str[ii],
-        totalSize, usedSize);
-    }
-  }
-#endif
-
-#if USE_LFS_QSPI_NAND == 1
-  for(int ii=0; ii<qnspi_nsd;ii++) {
-    if(!qnspifs[ii].begin()) {
-       DBGSerial.printf("QSPI NAND Storage %d %s failed or missing",ii,qnspi_str[ii]); DBGSerial.println();
-    } else {
-      pn = qnspifs[ii].getMediaName();
-      MTP.addFilesystem(qnspifs[ii], qnspi_str[ii]);
-      uint64_t totalSize = qnspifs[ii].totalSize();
-      uint64_t usedSize  = qnspifs[ii].usedSize();
-      DBGSerial.printf("Storage %d (%s) %s %llu %llu\n", ii, pn, qnspi_str[ii], totalSize, usedSize);
-    }
-  }
-#endif
-
-#if USE_LFS_FRAM==1
-  for (int ii=0; ii<qfspi_nsd;ii++) {
-    if (USE_SW_PU == 1) {
-      pinMode(qfspi_cs[ii],OUTPUT);
-      digitalWriteFast(qfspi_cs[ii],HIGH);
-    }
-    if (!qfspifs[ii].begin(qfspi_cs[ii], SPI)) {
-      DBGSerial.printf("SPIFlash Storage %d %d %s failed or missing",ii,qfspi_cs[ii],qfspi_str[ii]);
-      DBGSerial.println();
-    } else {
-      pn = qfspifs[ii].getMediaName();
-      MTP.addFilesystem(qfspifs[ii], qfspi_str[ii]);
-      uint64_t totalSize = qfspifs[ii].totalSize();
-      uint64_t usedSize  = qfspifs[ii].usedSize();
-      DBGSerial.printf("SPIFlash Storage %d (%s) %d %s %llu %llu\n", ii, pn, qfspi_cs[ii], qfspi_str[ii],
-        totalSize, usedSize);
-    }
-  }
-#endif
-
-}
-
 
 int ReadAndEchoSerialChar() {
   int ch = DBGSerial.read();
@@ -659,67 +457,12 @@ void benchmark() {
   DBGSerial.println("Bandwidth test finished");
 }
 
+#if 0
 const char *getFSPN(uint32_t ii) {
-  FS* pfs = MTP.storage()->getStoreFS(ii);
-  #if USE_LFS_QSPI==1
-    if (pfs == (FS *)&qspifs[0] && USE_LFS_QSPI == 1) {
-      DBGSerial.printf("(0)"); Serial.flush();
-      return qspifs[0].getMediaName();
-    }
-  #endif
-  #if useExMem == 1
-    if (pfs == (FS *)&lfsram) {
-      DBGSerial.printf("(1)"); Serial.flush();
-      return lfsram.getMediaName();
-    }
-  #endif
-  #if useProIdx == 1
-    if (pfs == (FS *)&lfsProg) {
-      DBGSerial.printf("(2)"); Serial.flush();
-      return lfsProg.getMediaName();
-    }
-  #endif
-  for (uint8_t i = 0; i < 4; i++) {
-    #if USE_LFS_RAM == 1
-      if ((i < nfs_ram) && pfs == (FS *)&ramfs[i]) {
-        DBGSerial.printf("(3-%u)", i); Serial.flush();
-        return ramfs[i].getMediaName();
-      }
-    #endif
-    #if USE_LFS_PROGM == 1
-      if ((i < nfs_progm) && pfs == (FS *)&progmfs[i]) {
-        DBGSerial.printf("(4-%u)", i); Serial.flush();
-        return progmfs[i].getMediaName();
-      }
-    #endif
-    #if USE_LFS_SPI == 1
-      if ((i < nfs_spi) && pfs == (FS *)&spifs[i]) {
-        DBGSerial.printf("(4a-%u)", i); Serial.flush();
-        return spifs[i].getMediaName();
-      }
-    #endif
-    #if USE_LFS_NAND == 1
-      if ((i < nspi_nsd) && pfs == (FS *)&nspifs[i]) {
-        DBGSerial.printf("(5-%u)", i); Serial.flush();
-        return nspifs[i].getMediaName();
-      }
-    #endif
-    #if USE_LFS_QSPI_NAND == 1
-      if ((i < qnspi_nsd) && pfs == (FS *)&nfs_progm[i]) {
-        DBGSerial.printf("(6-%u)", i); Serial.flush();
-        return qnspifs[i].getMediaName();
-      }
-    #endif
-    #if USE_LFS_FRAM == 1
-      if ((i < qfspi_nsd) && pfs == (FS *)&qfspi[i]){
-        DBGSerial.printf("(7-%u)", i); Serial.flush();
-        return qfspi[i].getMediaName();
-      }
-    #endif
-   }
-  DBGSerial.printf("(8)"); Serial.flush();
+// media name is now handled internally by MTP - this is no longer needed
   return "";
 }
+#endif
 
 char test_file_name[128] = "write_test_file.txt";
 uint32_t test_file_write_size = 512;
@@ -855,3 +598,51 @@ void test_write_file_with_packet_numbers(int ch) {
   Serial.printf("\nTime to write: %u\n", (uint32_t)em);
   
 }
+
+
+// MTP no longer exposes internal "store" or StorageID numbers.
+// To implement a list of filesystem the user can choose, we
+// must keep the list.
+
+void add_to_filesystems_list(FS &fs, const char *extra_info) {
+  if (filesystems_list_count >= sizeof(filesystems_list)/sizeof(FS *)) return;
+  unsigned int index = filesystems_list_count++;
+  filesystems_list[index] = &fs;
+  filesystems_extra_info[index] = extra_info;
+}
+
+void add_to_filesystems_list(FS &fs) {
+  add_to_filesystems_list(fs, nullptr);
+}
+
+FS *get_from_filesystems_list(unsigned int index) {
+  if (index >= filesystems_list_count) return nullptr;
+  return filesystems_list[index];
+}
+
+void print_filesystem_list() {
+  for (unsigned int i=0; i < filesystems_list_count; i++) {
+    FS *fs = filesystems_list[i];
+    float size = (float)fs->totalSize() / 1024.0f;
+    const char *unit = "kB";
+    if (size > 1024.0f) {
+      size = size / 1024.0f;
+      unit = "MB";
+    }
+    if (size > 1024.0f) {
+      size = size / 1024.0f;
+      unit = "GB";
+    }
+    Serial.printf(" FS #%u  Present=%s  Size=%.0f %s  Name=%s", i,
+      (fs->mediaPresent() ? "Yes" : "No "),
+      size, unit,
+      fs->name());
+    const char *extra_info = filesystems_extra_info[i];
+    if (extra_info) {
+      Serial.printf("  Info=%s", extra_info);
+    }
+    Serial.println();
+  }
+}
+
+
